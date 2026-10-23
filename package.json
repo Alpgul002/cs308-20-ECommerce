@@ -1,0 +1,16 @@
+{
+  "name": "cs308-20-ecommerce",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "engines": { "node": ">=20.19.0" },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm run dev --workspace @cs308/backend\" \"npm run dev --workspace @cs308/frontend\"",
+    "start:api": "npm run start --workspace @cs308/backend",
+    "build": "npm run build --workspace @cs308/frontend",
+    "test": "npm run test --workspace @cs308/backend && npm run test --workspace @cs308/frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
