@@ -542,3 +542,5 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
     font-size: 31px;
   }
 }
+.filter-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 18px 0; color: #726d80; font-size: 12px; overflow-wrap: anywhere; }
+.filter-summary .text-action { flex-shrink: 0; padding: 8px; border: 0; background: transparent; color: #674be3; cursor: pointer; font-weight: 700; }
