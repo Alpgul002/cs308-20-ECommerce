@@ -5,6 +5,8 @@ import {
   SlidersHorizontal, Sparkles, Trash2, Truck, X
 } from "lucide-react";
 import ProductArt from "./ProductArt.jsx";
+import ProductDetailsPage from "./ProductDetailsPage.jsx";
+import LoginPage from "./LoginPage.jsx";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
   removeItem, setItemQuantity, subtotalCents
@@ -100,7 +102,10 @@ function ProductDialog({ product, onClose, onAdd }) {
   );
 }
 
-function CartDrawer({ cart, productsById, quote, checking, onClose, onReview, onQuantity, onRemove }) {
+function CartDrawer({
+  cart, productsById, quote, checking,
+  onClose, onReview, onQuantity, onRemove, onDetails
+}) {
   return (
     <div className="overlay drawer-overlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -133,9 +138,22 @@ function CartDrawer({ cart, productsById, quote, checking, onClose, onReview, on
                 );
                 return (
                   <div className="bag-item" key={item.productId}>
-                    <ProductArt product={product} variant="mini" />
+                    <button
+                      type="button"
+                      className="bag-product-image"
+                      onClick={() => onDetails(product)}
+                      aria-label={`View ${product.name} details`}
+                    >
+                      <ProductArt product={product} variant="mini" />
+                    </button>
                     <div className="bag-item-info">
-                      <strong>{product.name}</strong>
+                    <button
+                      type="button"
+                      className="product-name"
+                      onClick={() => onDetails(product)}
+                    >
+                      {product.name}
+                    </button>
                       <span>{formatPrice(product.priceCents)}</span>
                       {product.stock < item.quantity && <small className="warning-text">Only {product.stock} available</small>}
                       <div className="quantity-control">
@@ -187,6 +205,7 @@ export default function App() {
   const [cart, setCart] = useState(initialCart);
   const [cartOpen, setCartOpen] = useState(false);
   const [details, setDetails] = useState(null);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -280,6 +299,26 @@ export default function App() {
   }
 
   const featured = products.find((product) => product.id === "p-101") || { imageKey: "headphones", accent: "violet", name: "Studio Headphones", priceCents: 12999 };
+  if (loginOpen) {
+    return (
+      <LoginPage
+        onBack={() => setLoginOpen(false)}
+        onSubmit={() => {
+          setLoginOpen(false);
+          setToast("Sign-in is temporarily unavailable. Your bag is still saved.");
+        }}
+      />
+    );
+  }
+  if (details) {
+    return (
+      <ProductDetailsPage
+        product={details}
+        onBack={() => setDetails(null)}
+        onAdd={handleAdd}
+      />
+    );
+  }
   return (
     <>
       <div className="announcement"><Sparkles size={14} /> A better way to browse your next favorite gadget <ArrowUpRight size={14} /></div>
@@ -296,6 +335,13 @@ export default function App() {
           </nav>
           <div className="header-actions">
             <span className="guest-label"><span className="online-dot" /> Guest browsing</span>
+            <button
+              type="button"
+              className="login-trigger"
+              onClick={() => setLoginOpen(true)}
+            >
+              Sign in
+            </button>
             <button className="cart-trigger" onClick={() => setCartOpen(true)} aria-label={`Open bag with ${countItems(cart)} items`}>
               <ShoppingBag size={20} /> <span>Bag</span>
               <span className="cart-count">{countItems(cart)}</span>
@@ -401,9 +447,20 @@ export default function App() {
         </div>
       </footer>
       {toast && <div className="toast" role="status"><CheckCircle2 size={18} />{toast}<button onClick={() => setToast("")} aria-label="Dismiss notification"><X size={16} /></button></div>}
-      {cartOpen && <CartDrawer cart={cart} productsById={productsById} quote={quote}
-        checking={checking} onClose={() => setCartOpen(false)}
-        onReview={reviewCart} onQuantity={handleQuantity} onRemove={handleRemove} />}
+      {cartOpen && <CartDrawer
+      cart={cart}
+      productsById={productsById}
+      quote={quote}
+      checking={checking}
+      onClose={() => setCartOpen(false)}
+      onReview={reviewCart}
+      onQuantity={handleQuantity}
+      onRemove={handleRemove}
+      onDetails={(product) => {
+        setCartOpen(false);
+        setDetails(product);
+      }}
+/>}
       {details && <ProductDialog product={details} onClose={() => setDetails(null)}
         onAdd={handleAdd} />}
     </>
