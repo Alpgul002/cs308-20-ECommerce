@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight,
   Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag,
   SlidersHorizontal, Sparkles, Trash2, Truck, X
 } from "lucide-react";
+import { filterProducts } from "./catalog.js";
 import ProductArt from "./ProductArt.jsx";
 import ProductDetailsPage from "./ProductDetailsPage.jsx";
 import LoginPage from "./LoginPage.jsx";
@@ -172,7 +173,7 @@ function CartDrawer({
               })}
             </div>
             <div className="bag-bottom">
-              <div className="subtotal-line"><span>Subtotal</span><strong>{formatPrice(subtotalCents(cart, productsById))}</strong></div>
+              <div className="subtotal-line"><span>Subtotal</span><strong>{formatPrice(quote?.subtotalCents ?? subtotalCents(cart, productsById))}</strong></div>
               <p className="bag-note">Shipping and payment will be added in a later sprint.</p>
               {quote && (
                 <p role="status" className={`quote-status ${quote.valid ? "quote-status--ok" : "quote-status--warn"}`}>
@@ -209,6 +210,12 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
+  const cartRevision = useRef(0);
+
+  function invalidateQuote() {
+    cartRevision.current += 1;
+    setQuote(null);
+  }
 
   useEffect(() => {
     let active = true;
@@ -245,21 +252,14 @@ export default function App() {
 
   const productsById = useMemo(() => Object.fromEntries(products.map((product) => [product.id, product])), [products]);
 
-  const visibleProducts = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const result = products.filter((product) => {
-      const categoryMatches = category === "all" || product.categorySlug === category;
-      const textMatches = !needle || `${product.name} ${product.description}`.toLowerCase().includes(needle);
-      return categoryMatches && textMatches;
-    });
-    result.sort((a, b) => {
-      if (sort === "price-asc") return a.priceCents - b.priceCents;
-      if (sort === "price-desc") return b.priceCents - a.priceCents;
-      if (sort === "name") return a.name.localeCompare(b.name);
-      return b.popularity - a.popularity;
-    });
-    return result;
-  }, [products, category, search, sort]);
+  const visibleProducts = useMemo(() => filterProducts(products, { search, category, sort }),
+    [products, category, search, sort]);
+
+  function resetFilters() {
+    setSearch("");
+    setCategory("all");
+    setSort("popular");
+  }
 
   function handleAdd(product) {
     const next = addItem(cart, product);
@@ -268,31 +268,40 @@ export default function App() {
       return;
     }
     setCart(next);
-    setQuote(null);
+    invalidateQuote();
     setToast(`${product.name} added to your bag.`);
   }
 
   function handleQuantity(id, quantity, stock) {
     setCart((current) => setItemQuantity(current, id, quantity, stock));
-    setQuote(null);
+    invalidateQuote();
   }
 
   function handleRemove(id) {
     setCart((current) => removeItem(current, id));
-    setQuote(null);
+    invalidateQuote();
   }
 
   async function reviewCart() {
+    const revision = cartRevision.current;
     setChecking(true);
+    setQuote(null);
     try {
       const result = await fetchJson("/api/cart/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: cart })
       });
+      if (revision !== cartRevision.current) return;
       setQuote(result);
+      setProducts((current) => current.map((product) => {
+        const line = result.items.find((item) => item.productId === product.id);
+        return line && line.unitPriceCents !== null
+          ? { ...product, priceCents: line.unitPriceCents, stock: line.stock }
+          : product;
+      }));
     } catch (error) {
-      setToast(error.message);
+      if (revision === cartRevision.current) setToast(error.message);
     } finally {
       setChecking(false);
     }
@@ -312,11 +321,14 @@ export default function App() {
   }
   if (details) {
     return (
+      <>
       <ProductDetailsPage
         product={details}
         onBack={() => setDetails(null)}
         onAdd={handleAdd}
       />
+      {toast && <div className="toast" role="status">{toast}<button onClick={() => setToast("")} aria-label="Dismiss notification"><X size={16} /></button></div>}
+      </>
     );
   }
   return (
@@ -411,6 +423,12 @@ export default function App() {
                 </label>
               </div>
             </div>
+            <div className="filter-summary" role="status">
+              <span>{visibleProducts.length} of {products.length} products
+                {search.trim() && ` matching “${search.trim()}”`}</span>
+              {(search || category !== "all" || sort !== "popular") &&
+                <button className="text-action" onClick={resetFilters}>Reset filters</button>}
+            </div>
 
             {loading ? (
               <div className="product-grid" aria-label="Loading products">
@@ -428,7 +446,7 @@ export default function App() {
               <div className="empty-results">
                 <Search size={32} /><h3>No matches this time</h3>
                 <p>Try another search or browse our full collection.</p>
-                <button className="outline-button" onClick={() => { setSearch(""); setCategory("all"); }}>Clear filters <ChevronRight size={16} /></button>
+                <button className="outline-button" onClick={resetFilters}>Clear filters <ChevronRight size={16} /></button>
               </div>
             )}
           </section>
