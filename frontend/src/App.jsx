@@ -100,7 +100,10 @@ function ProductDialog({ product, onClose, onAdd }) {
   );
 }
 
-function CartDrawer({ cart, productsById, quote, checking, onClose, onReview, onQuantity, onRemove }) {
+function CartDrawer({
+  cart, productsById, quote, checking,
+  onClose, onReview, onQuantity, onRemove, onDetails
+}) {
   return (
     <div className="overlay drawer-overlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -133,9 +136,22 @@ function CartDrawer({ cart, productsById, quote, checking, onClose, onReview, on
                 );
                 return (
                   <div className="bag-item" key={item.productId}>
-                    <ProductArt product={product} variant="mini" />
+                    <button
+                      type="button"
+                      className="bag-product-image"
+                      onClick={() => onDetails(product)}
+                      aria-label={`View ${product.name} details`}
+                    >
+                      <ProductArt product={product} variant="mini" />
+                    </button>
                     <div className="bag-item-info">
-                      <strong>{product.name}</strong>
+                    <button
+                      type="button"
+                      className="product-name"
+                      onClick={() => onDetails(product)}
+                    >
+                      {product.name}
+                    </button>
                       <span>{formatPrice(product.priceCents)}</span>
                       {product.stock < item.quantity && <small className="warning-text">Only {product.stock} available</small>}
                       <div className="quantity-control">
@@ -401,9 +417,20 @@ export default function App() {
         </div>
       </footer>
       {toast && <div className="toast" role="status"><CheckCircle2 size={18} />{toast}<button onClick={() => setToast("")} aria-label="Dismiss notification"><X size={16} /></button></div>}
-      {cartOpen && <CartDrawer cart={cart} productsById={productsById} quote={quote}
-        checking={checking} onClose={() => setCartOpen(false)}
-        onReview={reviewCart} onQuantity={handleQuantity} onRemove={handleRemove} />}
+      {cartOpen && <CartDrawer
+      cart={cart}
+      productsById={productsById}
+      quote={quote}
+      checking={checking}
+      onClose={() => setCartOpen(false)}
+      onReview={reviewCart}
+      onQuantity={handleQuantity}
+      onRemove={handleRemove}
+      onDetails={(product) => {
+        setCartOpen(false);
+        setDetails(product);
+      }}
+/>}
       {details && <ProductDialog product={details} onClose={() => setDetails(null)}
         onAdd={handleAdd} />}
     </>
