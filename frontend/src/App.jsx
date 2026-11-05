@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import ProductArt from "./ProductArt.jsx";
 import ProductDetailsPage from "./ProductDetailsPage.jsx";
+import LoginPage from "./LoginPage.jsx";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
   removeItem, setItemQuantity, subtotalCents
@@ -204,6 +205,7 @@ export default function App() {
   const [cart, setCart] = useState(initialCart);
   const [cartOpen, setCartOpen] = useState(false);
   const [details, setDetails] = useState(null);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -297,6 +299,17 @@ export default function App() {
   }
 
   const featured = products.find((product) => product.id === "p-101") || { imageKey: "headphones", accent: "violet", name: "Studio Headphones", priceCents: 12999 };
+  if (loginOpen) {
+    return (
+      <LoginPage
+        onBack={() => setLoginOpen(false)}
+        onSubmit={() => {
+          setLoginOpen(false);
+          setToast("Sign-in is temporarily unavailable. Your bag is still saved.");
+        }}
+      />
+    );
+  }
   if (details) {
     return (
       <ProductDetailsPage
@@ -322,6 +335,13 @@ export default function App() {
           </nav>
           <div className="header-actions">
             <span className="guest-label"><span className="online-dot" /> Guest browsing</span>
+            <button
+              type="button"
+              className="login-trigger"
+              onClick={() => setLoginOpen(true)}
+            >
+              Sign in
+            </button>
             <button className="cart-trigger" onClick={() => setCartOpen(true)} aria-label={`Open bag with ${countItems(cart)} items`}>
               <ShoppingBag size={20} /> <span>Bag</span>
               <span className="cart-count">{countItems(cart)}</span>
