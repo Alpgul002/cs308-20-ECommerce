@@ -278,3 +278,68 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .bag-item-info .product-name {
   font-size: 13px;
 }
+.product-page {
+  min-height: 100vh;
+  padding: 40px 0 80px;
+  background: #f8f6fb;
+}
+
+.product-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: #665f78;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.product-page-back:hover {
+  color: #674be3;
+}
+
+.product-page-card {
+  display: grid;
+  grid-template-columns: 47% 53%;
+  max-width: 1000px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #eeeaf3;
+  border-radius: 18px;
+  box-shadow: 0 22px 60px #2d244714;
+}
+
+.product-page-card .product-art--detail {
+  min-height: 560px;
+  border-radius: 17px 0 0 17px;
+}
+
+.product-page-card .detail-content h1 {
+  margin: 0 0 15px;
+  font-size: 36px;
+  letter-spacing: -0.05em;
+}
+
+@media (max-width: 700px) {
+  .product-page {
+    padding: 24px 0 50px;
+  }
+
+  .product-page-card {
+    display: block;
+  }
+
+  .product-page-card .product-art--detail {
+    min-height: 280px;
+    height: 280px;
+    border-radius: 17px 17px 0 0;
+  }
+
+  .product-page-card .detail-content h1 {
+    font-size: 27px;
+  }
+}

@@ -5,6 +5,7 @@ import {
   SlidersHorizontal, Sparkles, Trash2, Truck, X
 } from "lucide-react";
 import ProductArt from "./ProductArt.jsx";
+import ProductDetailsPage from "./ProductDetailsPage.jsx";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
   removeItem, setItemQuantity, subtotalCents
@@ -296,6 +297,15 @@ export default function App() {
   }
 
   const featured = products.find((product) => product.id === "p-101") || { imageKey: "headphones", accent: "violet", name: "Studio Headphones", priceCents: 12999 };
+  if (details) {
+    return (
+      <ProductDetailsPage
+        product={details}
+        onBack={() => setDetails(null)}
+        onAdd={handleAdd}
+      />
+    );
+  }
   return (
     <>
       <div className="announcement"><Sparkles size={14} /> A better way to browse your next favorite gadget <ArrowUpRight size={14} /></div>
