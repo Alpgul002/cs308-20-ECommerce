@@ -41,14 +41,14 @@ that unchecked items are complete.
 - [x] S2-13 Add product-manager product add/remove endpoints (SCRUM-13).
 - [x] S2-14 Add login, role and product API tests (SCRUM-13).
 - [x] S2-15 Report and fix backend defects, see BUG_REPORTS.md (SCRUM-13).
-- [ ] S2-16 Connect the login page to the login API.
+- [x] S2-16 Connect the login page to the login API (SCRUM-15).
 
 ## Sprint 3 — Progress demo completion
 
 - [ ] S3-01 Build delivered-purchase-only ratings endpoint/UI.
 - [ ] S3-02 Build comment submission and moderation queue.
 - [ ] S3-03 Implement visible approved comments and immediate star ratings.
-- [ ] S3-04 Implement customer profile page with name/email/address.
+- [x] S3-04 Implement customer profile page with name/email/address (SCRUM-15).
 - [ ] S3-05 Add wishlist schema and browsing interaction.
 - [ ] S3-06 Add product-manager stock/order-status controls.
 - [ ] S3-07 Verify progress demo features 1, 3, 4, 5, 7, 9 end-to-end.

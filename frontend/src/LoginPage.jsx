@@ -14,9 +14,12 @@ export default function LoginPage({ onBack, onSubmit }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
     const nextErrors = {};
     const cleanEmail = email.trim();
@@ -36,7 +39,15 @@ export default function LoginPage({ onBack, onSubmit }) {
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length === 0) {
-      onSubmit({ email: cleanEmail, password });
+      setSubmitting(true);
+      setServerError("");
+      try {
+        await onSubmit({ email: cleanEmail, password });
+      } catch (error) {
+        setServerError(error.message || "Unable to sign in. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -79,7 +90,7 @@ export default function LoginPage({ onBack, onSubmit }) {
                   <input
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => { setEmail(event.target.value); setServerError(""); }}
                     placeholder="name@example.com"
                     autoComplete="email"
                     aria-invalid={Boolean(errors.email)}
@@ -99,7 +110,7 @@ export default function LoginPage({ onBack, onSubmit }) {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(event) => { setPassword(event.target.value); setServerError(""); }}
                     placeholder="Enter your password"
                     autoComplete="current-password"
                     aria-invalid={Boolean(errors.password)}
@@ -122,9 +133,10 @@ export default function LoginPage({ onBack, onSubmit }) {
                 )}
               </label>
 
-              <button type="submit" className="primary-button wide">
+              {serverError && <p className="login-error" role="alert">{serverError}</p>}
+              <button type="submit" className="primary-button wide" disabled={submitting}>
                 <LogIn size={18} />
-                Sign in
+                {submitting ? "Signing in..." : "Sign in"}
               </button>
             </form>
 

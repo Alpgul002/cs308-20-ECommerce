@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight,
   Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag,
-  SlidersHorizontal, Sparkles, Trash2, Truck, X
+  SlidersHorizontal, Sparkles, Trash2, Truck, UserRound, X
 } from "lucide-react";
 import { filterProducts } from "./catalog.js";
 import ProductArt from "./ProductArt.jsx";
 import ProductDetailsPage from "./ProductDetailsPage.jsx";
 import LoginPage from "./LoginPage.jsx";
+import ProfilePage from "./ProfilePage.jsx";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
   removeItem, setItemQuantity, subtotalCents
@@ -207,6 +208,8 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [details, setDetails] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -230,6 +233,14 @@ export default function App() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [retry]);
+
+  useEffect(() => {
+    let active = true;
+    fetchJson("/api/auth/me", { credentials: "include" })
+      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
+      .catch(() => { if (active) setUser(null); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); } catch { /* Browsing still works with storage disabled. */ }
@@ -282,6 +293,13 @@ export default function App() {
     invalidateQuote();
   }
 
+  async function handleLogout() {
+    await fetchJson("/api/auth/logout", { method: "POST", credentials: "include" });
+    setUser(null);
+    setProfileOpen(false);
+    setToast("You have signed out.");
+  }
+
   async function reviewCart() {
     const revision = cartRevision.current;
     setChecking(true);
@@ -312,12 +330,22 @@ export default function App() {
     return (
       <LoginPage
         onBack={() => setLoginOpen(false)}
-        onSubmit={() => {
+        onSubmit={async ({ email, password }) => {
+          const { user: signedInUser } = await fetchJson("/api/auth/login", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+          });
+          setUser(signedInUser);
           setLoginOpen(false);
-          setToast("Sign-in is temporarily unavailable. Your bag is still saved.");
+          setToast(`Welcome back, ${signedInUser.name}.`);
         }}
       />
     );
+  }
+  if (profileOpen && user) {
+    return <ProfilePage user={user} onBack={() => setProfileOpen(false)} onLogout={handleLogout} />;
   }
   if (details) {
     return (
@@ -346,13 +374,13 @@ export default function App() {
             <a href="#features">Why Orbit</a>
           </nav>
           <div className="header-actions">
-            <span className="guest-label"><span className="online-dot" /> Guest browsing</span>
+            <span className="guest-label"><span className="online-dot" /> {user ? "Signed in" : "Guest browsing"}</span>
             <button
               type="button"
               className="login-trigger"
-              onClick={() => setLoginOpen(true)}
+              onClick={() => user ? setProfileOpen(true) : setLoginOpen(true)}
             >
-              Sign in
+              {user ? <><UserRound size={15} /> My profile</> : "Sign in"}
             </button>
             <button className="cart-trigger" onClick={() => setCartOpen(true)} aria-label={`Open bag with ${countItems(cart)} items`}>
               <ShoppingBag size={20} /> <span>Bag</span>

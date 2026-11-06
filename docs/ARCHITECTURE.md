@@ -92,7 +92,7 @@ writes must stay transactional either way.
 
 ## Known omissions and demo scope
 
-Only a starter subset of requirements **1, 2, 6, 7, 9** is working, plus the
-guest-cart portions of **4**, the login backend, and product add/remove from **12**.
-The login page is not connected to the API yet. No actual order/delivery tracking (#3)
-or payment/invoice (#4) exists yet.
+The current increment supports a starter subset of requirements **1, 2, 6, 7, 9**,
+the guest-cart portions of **4**, the login backend and connected login/profile UI,
+and product add/remove from **12**. No actual order/delivery tracking (#3) or
+payment/invoice (#4) exists yet.
