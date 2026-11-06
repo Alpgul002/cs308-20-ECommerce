@@ -1,3 +1,5 @@
+import { ROLES, hashPassword } from "./auth.js";
+
 // Fake demo content only. Runs once, from the first migration.
 const categories = [
   ["audio", "Audio"],
@@ -29,4 +31,30 @@ export function seedCatalog(db) {
   `);
   for (const category of categories) insertCategory.run(...category);
   for (const product of products) insertProduct.run(...product);
+}
+
+const demoUsers = [
+  { name: "Demo Customer", email: "customer@orbit.test", role: ROLES.CUSTOMER, taxId: "1234567890", homeAddress: "Orta Mah. Universite Cad. 27, Tuzla, Istanbul" },
+  { name: "Demo Sales Manager", email: "sales@orbit.test", role: ROLES.SALES_MANAGER },
+  { name: "Demo Product Manager", email: "product@orbit.test", role: ROLES.PRODUCT_MANAGER },
+  { name: "Demo Support Agent", email: "support@orbit.test", role: ROLES.SUPPORT_AGENT }
+];
+
+// Staff cannot sign up publicly, so local development needs one account per role. The password
+// comes from backend/.env (DEMO_USERS_PASSWORD), so no credential is ever committed to the repo.
+export async function seedDemoUsers(db, password, { rounds } = {}) {
+  if (process.env.NODE_ENV === "production") throw new Error("Demo users must not be created in production.");
+  if (password.length < 8) throw new Error("DEMO_USERS_PASSWORD must contain at least 8 characters.");
+  const exists = db.prepare("SELECT 1 FROM users WHERE email = ?");
+  const insert = db.prepare(`
+    INSERT INTO users (name, email, tax_id, home_address, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  let created = 0;
+  for (const user of demoUsers) {
+    if (exists.get(user.email)) continue;
+    const hash = await hashPassword(password, rounds);
+    insert.run(user.name, user.email, user.taxId ?? null, user.homeAddress ?? null, hash, user.role);
+    created += 1;
+  }
+  return created;
 }
