@@ -22,12 +22,19 @@ loaded catalog for instant interaction. The API independently exposes server-sid
 category/search/sort endpoints for other clients and future pagination. Do not treat
 browser calculations as authoritative checkout totals.
 
-## Data model (initial)
+## Data model
+
+Schema changes go through versioned migrations in `backend/src/migrations.js`.
 
 - `categories(slug PK, name)`
 - `products(id PK, category_slug FK, name, brand, model, serial_number, description,
-   stock, price_cents, warranty_months, warranty_status, distributor, popularity,
-   image_key, accent)`
+   stock, price_cents, cost_cents, warranty_months, warranty_status, distributor, popularity,
+   image_key, accent, deleted_at)`
+- `users(id PK, name, email UNIQUE, tax_id, home_address, password_hash, role, created_at)`
+- `sessions(token_hash PK, user_id FK, created_at, expires_at)`
+
+Removing a product sets `deleted_at` and keeps the row, so orders and refunds can still
+resolve it and its ID is never reused.
 
 `price_cents` is an integer, never a floating-point money value. Stock is
 constrained nonnegative. Seed data is fake demo content; serial numbers are
@@ -37,16 +44,21 @@ demo *model identifiers*, not one serial per physical unit.
 (1–20), prices, and stock. It DOES NOT reserve stock, process cards, or place orders.
 The guest cart is local to the current browser.
 
+## Authentication and authorization
+
+- Passwords are hashed with bcrypt at 12 rounds. The plaintext is never stored.
+- A session is a random 32-byte token in an HttpOnly, SameSite=Lax cookie (Secure in
+  production). The `sessions` table stores only its SHA-256, and it expires after 7 days.
+- `requireRole` checks the role server-side on each request, reading the user fresh from the
+  database. Public sign-up only creates customers and ignores any role in the request.
+- Login gives one message for a wrong password and an unknown email, runs bcrypt in both
+  cases and rate limits failures per IP and email.
+- A state-changing request that carries a session cookie must come from an origin in
+  `CORS_ORIGIN`.
+
 ## Future architecture / constraints from specification
 
 ### Authentication and authorization
-- Add customers with ID, name, tax ID, email, home address, password hash.
-- Store passwords with a strong adaptive password hasher (Argon2id or bcrypt).
-- Store only the **hashed password**, never the password in plaintext.
-- Add session cookies (HttpOnly, Secure in production, SameSite) and CSRF protection
-  if cookie-authenticated state-changing requests are used.
-- Implement explicit, server-side role checks for customer, sales manager, product
-  manager, support agent. Do not accept a role from an untrusted request body.
 - Migrate guest cart into the signed-in cart without losing products.
 
 ### Checkout and concurrency
@@ -81,5 +93,6 @@ writes must stay transactional either way.
 ## Known omissions and demo scope
 
 Only a starter subset of requirements **1, 2, 6, 7, 9** is working, plus the
-guest-cart portions of **4**. No actual order/delivery tracking (#3) or
-authentication/payment/invoice (#4) exists yet.
+guest-cart portions of **4**, the login backend, and product add/remove from **12**.
+The login page is not connected to the API yet. No actual order/delivery tracking (#3)
+or payment/invoice (#4) exists yet.

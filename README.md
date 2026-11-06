@@ -32,6 +32,9 @@ No separate SQLite server is required. To customize the API port/database path,
 copy `backend/.env.example` to `backend/.env` and edit it. If you change PORT,
 also update the Vite proxy target in `frontend/vite.config.js`.
 
+To get one local account per role, set `DEMO_USERS_PASSWORD` in `backend/.env`.
+See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
+
 > Never commit `.env` files, database files, credentials, or actual customer/payment data.
 
 ## Commands
@@ -55,17 +58,20 @@ also update the Vite proxy target in `frontend/vite.config.js`.
 - Add/change/remove items in a **guest cart** persisted to browser `localStorage`.
 - Check cart price and current inventory using the backend (no stock reservation).
 - Responsive frontend, working API, separate tests and documented architecture.
+- Backend for registration, login, logout and role checks with hashed passwords and server-side sessions.
+- Backend for product managers to add and remove products.
 
 ## Important: not built yet
 
-User registration/login, cart migration after login, orders, stock-decrement transaction,
+Connecting the login page to the API, orders, stock-decrement transaction,
 mock banking, invoice emails/PDF, ratings/comments and approval, wish lists, returns/refunds,
-sales/product manager dashboards, role privileges, and live support chat are **not yet implemented**.
+sales/product manager dashboards, and live support chat are **not yet implemented**.
 The interface explicitly says checkout is unavailable; it does **not** simulate a successful order.
 Implement and test these against the requirement list before the progress/final demos.
 
 The progress demo specifically expects features **1, 3, 4, 5, 7, 9**.
-See [Architecture](docs/ARCHITECTURE.md) and [Sprint Backlog](docs/SPRINT_BACKLOG.md).
+See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.md),
+[Bug Reports](docs/BUG_REPORTS.md) and [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 
 ## API overview
 
@@ -76,6 +82,12 @@ See [Architecture](docs/ARCHITECTURE.md) and [Sprint Backlog](docs/SPRINT_BACKLO
 | GET | `/api/products?search=&category=&sort=` | Catalog search/filter/sort |
 | GET | `/api/products/:id` | Full product detail |
 | POST | `/api/cart/validate` | Validate guest cart stock/price; **not checkout** |
+| POST | `/api/auth/register` | Create a customer account and sign in |
+| POST | `/api/auth/login` | Sign in |
+| POST | `/api/auth/logout` | End the current session |
+| GET | `/api/auth/me` | Current user, 401 when signed out |
+| POST | `/api/products` | Add a product (product manager) |
+| DELETE | `/api/products/:id` | Remove a product (product manager) |
 
 Query sorts: `popular`, `price-asc`, `price-desc`, and `name`.
 

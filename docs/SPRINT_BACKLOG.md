@@ -27,8 +27,8 @@ that unchecked items are complete.
 ## Sprint 2 — Customers, checkout, and order delivery
 
 - [ ] S2-01 Design customer, orders, order-items, and delivery schema.
-- [ ] S2-02 Implement registration with password hashing and validation.
-- [ ] S2-03 Implement login/logout and secure server-side sessions.
+- [x] S2-02 Implement registration with password hashing and validation (backend).
+- [x] S2-03 Implement login/logout and secure server-side sessions (backend).
 - [ ] S2-04 Implement guest-cart migration after login.
 - [ ] S2-05 Implement transactional checkout with stock decrement.
 - [ ] S2-06 Add mock bank payment response (no real card storage).
@@ -36,6 +36,12 @@ that unchecked items are complete.
 - [ ] S2-08 Generate invoice PDF and email to registered customer.
 - [ ] S2-09 Build order history and order-status UI.
 - [ ] S2-10 Test concurrent checkouts with last remaining stock.
+- [x] S2-11 Add versioned database migrations (SCRUM-13).
+- [x] S2-12 Add server-side role checks for the four roles (SCRUM-13).
+- [x] S2-13 Add product-manager product add/remove endpoints (SCRUM-13).
+- [x] S2-14 Add login, role and product API tests (SCRUM-13).
+- [x] S2-15 Report and fix backend defects, see BUG_REPORTS.md (SCRUM-13).
+- [ ] S2-16 Connect the login page to the login API.
 
 ## Sprint 3 — Progress demo completion
 
