@@ -38,12 +38,14 @@ export function getProducts(db, { search = "", category = "all", sort = "popular
     params.push(category);
   }
   if (search.trim()) {
-    const pattern = `%${search.trim()}%`;
-    where.push("(p.name LIKE ? OR p.description LIKE ?)");
+    // Users search for literal text, so LIKE wildcards in their input must not match everything.
+    const pattern = `%${search.trim().replace(/[!%_]/g, "!$&")}%`;
+    where.push("(p.name LIKE ? ESCAPE '!' OR p.description LIKE ? ESCAPE '!')");
     params.push(pattern, pattern);
   }
   const condition = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  return db.prepare(`${selectProducts} ${condition} ORDER BY ${SORT_OPTIONS[sort]} LIMIT 100`).all(...params);
+  // No LIMIT: the storefront filters this list client-side, so a cut-off would hide products.
+  return db.prepare(`${selectProducts} ${condition} ORDER BY ${SORT_OPTIONS[sort]}`).all(...params);
 }
 
 export function getProduct(db, id) {
