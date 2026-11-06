@@ -6,6 +6,7 @@ import { DEFAULT_BCRYPT_ROUNDS } from "./auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { HttpError } from "./errors.js";
 import { loadSession, rejectForeignOrigins } from "./middleware.js";
+import { createProductAdminRouter } from "./productAdminRoutes.js";
 import { getCategories, getProduct, getProducts, isValidCartInput, SORT_OPTIONS, validateCart } from "./catalog.js";
 
 const DEFAULT_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
@@ -58,6 +59,8 @@ export function createApp(db, options = {}) {
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json({ product });
   });
+
+  app.use("/api/products", createProductAdminRouter(db));
 
   app.post("/api/cart/validate", (req, res) => {
     if (!isValidCartInput(req.body?.items)) {
