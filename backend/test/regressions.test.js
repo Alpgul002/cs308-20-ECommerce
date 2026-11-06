@@ -1,6 +1,9 @@
 // One regression test per defect in docs/BUG_REPORTS.md. The IDs match that file.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
+import { fileURLToPath } from "node:url";
 import request from "supertest";
 import { createDatabase } from "../src/db.js";
 import { createApp } from "../src/app.js";
@@ -54,3 +57,19 @@ test("BUG-04 catalog listing is not cut off at 100 products", () => {
   memory.close();
 });
 
+test("BUG-05 a busy port stops the server with an error instead of claiming it runs", async () => {
+  const blocker = createServer();
+  await new Promise((resolve) => blocker.listen(0, resolve));
+  const { port } = blocker.address();
+  const child = spawn(process.execPath, [fileURLToPath(new URL("../src/server.js", import.meta.url))], {
+    env: { ...process.env, PORT: String(port), DB_FILE: ":memory:" }
+  });
+  let stdout = "", stderr = "";
+  child.stdout.on("data", (chunk) => { stdout += chunk; });
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  const code = await new Promise((resolve) => child.on("close", resolve));
+  blocker.close();
+  assert.equal(code, 1);
+  assert.match(stderr, /already in use/);
+  assert.doesNotMatch(stdout, /running/);
+});
