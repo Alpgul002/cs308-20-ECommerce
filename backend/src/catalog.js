@@ -22,7 +22,7 @@ export function getCategories(db) {
   return db.prepare(`
     SELECT c.slug, c.name, COUNT(p.id) AS productCount
     FROM categories c
-    LEFT JOIN products p ON p.category_slug = c.slug
+    LEFT JOIN products p ON p.category_slug = c.slug AND p.deleted_at IS NULL
     GROUP BY c.slug, c.name
     ORDER BY c.name
   `).all();
@@ -31,7 +31,7 @@ export function getCategories(db) {
 // SQL values are bound parameters. Sorting is a fixed allowlist, never user SQL.
 export function getProducts(db, { search = "", category = "all", sort = "popular" } = {}) {
   if (!Object.hasOwn(SORT_OPTIONS, sort)) throw new RangeError("Invalid sort option");
-  const where = [];
+  const where = ["p.deleted_at IS NULL"];
   const params = [];
   if (category !== "all") {
     where.push("c.slug = ?");
@@ -43,13 +43,12 @@ export function getProducts(db, { search = "", category = "all", sort = "popular
     where.push("(p.name LIKE ? ESCAPE '!' OR p.description LIKE ? ESCAPE '!')");
     params.push(pattern, pattern);
   }
-  const condition = where.length ? `WHERE ${where.join(" AND ")}` : "";
   // No LIMIT: the storefront filters this list client-side, so a cut-off would hide products.
-  return db.prepare(`${selectProducts} ${condition} ORDER BY ${SORT_OPTIONS[sort]}`).all(...params);
+  return db.prepare(`${selectProducts} WHERE ${where.join(" AND ")} ORDER BY ${SORT_OPTIONS[sort]}`).all(...params);
 }
 
 export function getProduct(db, id) {
-  return db.prepare(`${selectProducts} WHERE p.id = ?`).get(id) ?? null;
+  return db.prepare(`${selectProducts} WHERE p.deleted_at IS NULL AND p.id = ?`).get(id) ?? null;
 }
 
 // Quotes do not place an order, reserve stock, or process payment.
