@@ -1,6 +1,7 @@
 import { ROLES, getSessionUser } from "./auth.js";
 
 export const SESSION_COOKIE = "orbit_session";
+export const GUEST_CART_COOKIE = "orbit_guest_cart";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -33,12 +34,12 @@ export function requireRole(...roles) {
 }
 
 // CSRF defence in depth, on top of the SameSite=Lax cookie: a state-changing request that
-// carries a session cookie must come from one of our own origins. Guests are unaffected.
+// carries a session cookie must come from one of our own origins. This also protects persisted guest carts.
 export function rejectForeignOrigins(allowedOrigins) {
   return (req, res, next) => {
     const origin = req.get("origin");
-    const hasSession = Boolean(req.cookies?.[SESSION_COOKIE]);
-    if (SAFE_METHODS.has(req.method) || !hasSession || !origin || allowedOrigins.includes(origin)) return next();
+    const hasProtectedCookie = Boolean(req.cookies?.[SESSION_COOKIE] || req.cookies?.[GUEST_CART_COOKIE]);
+    if (SAFE_METHODS.has(req.method) || !hasProtectedCookie || !origin || allowedOrigins.includes(origin)) return next();
     res.status(403).json({ error: "Request blocked: unknown origin." });
   };
 }

@@ -9,24 +9,30 @@ import ProductArt from "./ProductArt.jsx";
 import ProductDetailsPage from "./ProductDetailsPage.jsx";
 import LoginPage from "./LoginPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
+import { fetchJson, sendJson } from "./api.js";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
-  removeItem, setItemQuantity, subtotalCents
+  setItemQuantity, subtotalCents
 } from "./cart.js";
 
-async function fetchJson(url, options) {
-  const response = await fetch(url, options);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Something went wrong.");
-  return data;
-}
-
-function initialCart() {
+function legacyCart() {
   try {
     return normalizeCart(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]"));
   } catch {
     return [];
   }
+}
+
+async function loadInitialAccount() {
+  const { user } = await fetchJson("/api/auth/me").catch((error) => {
+    if (error.status !== 401) throw error;
+    return { user: null };
+  });
+  const items = legacyCart().slice(0, 40);
+  if (!items.length) return { user, ...await fetchJson("/api/cart") };
+  const imported = await sendJson("/api/cart/import", "POST", { items });
+  try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be blocked. */ }
+  return { user, ...imported };
 }
 
 function SectionTitle({ eyebrow, title, children }) {
@@ -41,7 +47,7 @@ function SectionTitle({ eyebrow, title, children }) {
   );
 }
 
-function ProductCard({ product, onAdd, onDetails }) {
+function ProductCard({ product, onAdd, onDetails, cartBusy }) {
   const soldOut = product.stock === 0;
   return (
     <article className="product-card">
@@ -58,7 +64,7 @@ function ProductCard({ product, onAdd, onDetails }) {
         <p className="product-description">{product.description}</p>
         <div className="product-footer">
           <span className="price">{formatPrice(product.priceCents)}</span>
-          <button className="add-button" onClick={() => onAdd(product)} disabled={soldOut}
+          <button className="add-button" onClick={() => onAdd(product)} disabled={soldOut || cartBusy}
             aria-label={soldOut ? `${product.name} is out of stock` : `Add ${product.name} to cart`}>
             {soldOut ? "Unavailable" : <><Plus size={17} /> Add</>}
           </button>
@@ -105,7 +111,7 @@ function ProductDialog({ product, onClose, onAdd }) {
 }
 
 function CartDrawer({
-  cart, productsById, quote, checking,
+  cart, productsById, quote, checking, cartBusy,
   onClose, onReview, onQuantity, onRemove, onDetails
 }) {
   return (
@@ -135,7 +141,7 @@ function CartDrawer({
                 if (!product) return (
                   <div className="bag-item" key={item.productId}>
                     <p>This product is no longer in the catalog.</p>
-                    <button className="text-action" onClick={() => onRemove(item.productId)}>Remove</button>
+                    <button className="text-action" disabled={cartBusy} onClick={() => onRemove(item.productId)}>Remove</button>
                   </div>
                 );
                 return (
@@ -159,15 +165,15 @@ function CartDrawer({
                       <span>{formatPrice(product.priceCents)}</span>
                       {product.stock < item.quantity && <small className="warning-text">Only {product.stock} available</small>}
                       <div className="quantity-control">
-                        <button onClick={() => onQuantity(item.productId, item.quantity - 1, product.stock)}
+                        <button disabled={cartBusy} onClick={() => onQuantity(item.productId, item.quantity - 1, product.stock)}
                           aria-label={`Decrease ${product.name} quantity`}><Minus size={14} /></button>
                         <span>{item.quantity}</span>
                         <button onClick={() => onQuantity(item.productId, item.quantity + 1, product.stock)}
-                          disabled={item.quantity >= Math.min(20, product.stock)}
+                          disabled={cartBusy || item.quantity >= Math.min(20, product.stock)}
                           aria-label={`Increase ${product.name} quantity`}><Plus size={14} /></button>
                       </div>
                     </div>
-                    <button className="icon-button remove-button" onClick={() => onRemove(item.productId)}
+                    <button className="icon-button remove-button" disabled={cartBusy} onClick={() => onRemove(item.productId)}
                       aria-label={`Remove ${product.name}`}><Trash2 size={17} /></button>
                   </div>
                 );
@@ -183,7 +189,7 @@ function CartDrawer({
                     : "Some items are unavailable. Please adjust your bag."}
                 </p>
               )}
-              <button className="primary-button wide" onClick={onReview} disabled={checking}>
+              <button className="primary-button wide" onClick={onReview} disabled={checking || cartBusy}>
                 {checking ? "Checking availability..." : "Check stock & subtotal"} <ArrowRight size={18} />
               </button>
               <p className="checkout-notice">Guest browsing only · Orders and payments are not active yet</p>
@@ -204,7 +210,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("popular");
-  const [cart, setCart] = useState(initialCart);
+  const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [details, setDetails] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -214,6 +220,9 @@ export default function App() {
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
   const cartRevision = useRef(0);
+  const cartStartup = useRef(null);
+  const cartRequest = useRef(false);
+  const [cartBusy, setCartBusy] = useState(true);
 
   function invalidateQuote() {
     cartRevision.current += 1;
@@ -236,15 +245,18 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    fetchJson("/api/auth/me", { credentials: "include" })
-      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
-      .catch(() => { if (active) setUser(null); });
+    cartStartup.current ??= loadInitialAccount();
+    cartStartup.current.then(({ user, items }) => {
+      if (!active) return;
+      setUser(user);
+      setCart(items);
+    }).catch((error) => {
+      if (active) setToast(error.message);
+    }).finally(() => {
+      if (active) setCartBusy(false);
+    });
     return () => { active = false; };
   }, []);
-
-  useEffect(() => {
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); } catch { /* Browsing still works with storage disabled. */ }
-  }, [cart]);
 
   useEffect(() => {
     if (!toast) return;
@@ -272,30 +284,63 @@ export default function App() {
     setSort("popular");
   }
 
+  async function saveCartLine(id, quantity, message) {
+    if (cartBusy || cartRequest.current) return;
+    cartRequest.current = true;
+    setCartBusy(true);
+    invalidateQuote();
+    const url = `/api/cart/items/${id}`;
+    try {
+      const { items } = quantity
+        ? await sendJson(url, "PUT", { quantity })
+        : await fetchJson(url, { method: "DELETE" });
+      setCart(items);
+      if (message) setToast(message);
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      cartRequest.current = false;
+      setCartBusy(false);
+    }
+  }
+
   function handleAdd(product) {
     const next = addItem(cart, product);
     if (next === cart) {
       setToast(product.stock < 1 ? "This product is out of stock." : "You've reached the available quantity.");
       return;
     }
-    setCart(next);
-    invalidateQuote();
-    setToast(`${product.name} added to your bag.`);
+    saveCartLine(product.id, next.find((line) => line.productId === product.id).quantity,
+      `${product.name} added to your bag.`);
   }
 
   function handleQuantity(id, quantity, stock) {
-    setCart((current) => setItemQuantity(current, id, quantity, stock));
-    invalidateQuote();
+    const line = setItemQuantity(cart, id, quantity, stock).find((item) => item.productId === id);
+    saveCartLine(id, line?.quantity ?? 0);
   }
 
   function handleRemove(id) {
-    setCart((current) => removeItem(current, id));
+    saveCartLine(id, 0);
+  }
+
+  async function refreshCart() {
+    setCartBusy(true);
     invalidateQuote();
+    setCart([]);
+    try {
+      const { items } = await fetchJson("/api/cart");
+      setCart(items);
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setCartBusy(false);
+    }
   }
 
   async function handleLogout() {
     await fetchJson("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
+    await refreshCart();
     setProfileOpen(false);
     setToast("You have signed out.");
   }
@@ -338,6 +383,7 @@ export default function App() {
             body: JSON.stringify({ email, password })
           });
           setUser(signedInUser);
+          await refreshCart();
           setLoginOpen(false);
           setToast(`Welcome back, ${signedInUser.name}.`);
         }}
@@ -352,6 +398,9 @@ export default function App() {
       <>
       <ProductDetailsPage
         product={details}
+        user={user}
+        cartBusy={cartBusy}
+        onSignIn={() => setLoginOpen(true)}
         onBack={() => setDetails(null)}
         onAdd={handleAdd}
       />
@@ -467,7 +516,7 @@ export default function App() {
             ) : visibleProducts.length ? (
               <div className="product-grid">
                 {visibleProducts.map((product) =>
-                  <ProductCard key={product.id} product={product} onDetails={setDetails} onAdd={handleAdd} />
+                  <ProductCard key={product.id} product={product} onDetails={setDetails} onAdd={handleAdd} cartBusy={cartBusy} />
                 )}
               </div>
             ) : (
@@ -480,7 +529,7 @@ export default function App() {
           </section>
 
           <section className="bottom-banner">
-            <div><span className="eyebrow">YOUR BAG, YOUR PACE</span><h2>Found something you love?</h2><p>Add products to your bag without an account. Your selection stays in this browser.</p></div>
+            <div><span className="eyebrow">YOUR BAG, YOUR PACE</span><h2>Found something you love?</h2><p>Add products to your bag without an account. Your bag is saved for your next visit.</p></div>
             <button className="banner-button" onClick={() => setCartOpen(true)}>View your bag <ArrowRight size={19} /></button>
           </section>
         </div>
@@ -498,6 +547,7 @@ export default function App() {
       productsById={productsById}
       quote={quote}
       checking={checking}
+      cartBusy={cartBusy}
       onClose={() => setCartOpen(false)}
       onReview={reviewCart}
       onQuantity={handleQuantity}

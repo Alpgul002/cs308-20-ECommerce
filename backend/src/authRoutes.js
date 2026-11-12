@@ -5,7 +5,8 @@ import {
   registerCustomer, validateLogin, validateRegistration
 } from "./auth.js";
 import { HttpError } from "./errors.js";
-import { SESSION_COOKIE, requireAuth } from "./middleware.js";
+import { mergeGuestCart } from "./cartRoutes.js";
+import { GUEST_CART_COOKIE, SESSION_COOKIE, requireAuth } from "./middleware.js";
 
 export function createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, registerLimit }) {
   const router = Router();
@@ -35,6 +36,8 @@ export function createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, r
     const previous = req.cookies?.[SESSION_COOKIE];
     if (typeof previous === "string") deleteSession(db, previous);
     purgeExpiredSessions(db);
+    mergeGuestCart(db, req, userId);
+    if (req.cookies?.[GUEST_CART_COOKIE]) res.clearCookie(GUEST_CART_COOKIE, cookieOptions);
     const { token, expiresAt } = createSession(db, userId);
     res.cookie(SESSION_COOKIE, token, { ...cookieOptions, expires: new Date(expiresAt) });
   }

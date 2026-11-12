@@ -1,4 +1,6 @@
 import { seedCatalog } from "./seed.js";
+import { createShopTables } from "./shopSchema.js";
+
 
 // Schema history, tracked with SQLite's PRAGMA user_version.
 // Rules: never edit a migration that is already merged. To change the schema,
@@ -79,7 +81,8 @@ export const migrations = [
         CREATE UNIQUE INDEX idx_products_serial_active ON products(serial_number) WHERE deleted_at IS NULL;
       `);
     }
-  }
+  },
+  { version: 4, name: "carts-purchases-and-reviews", up: createShopTables }
 ];
 
 export function runMigrations(db, list = migrations) {
