@@ -4,12 +4,11 @@ Tarih: 13 Kasım 2026. Ortam: Windows x64, Node.js 24.22.1, npm 10.9.4.
 
 | Kontrol | Sonuç |
 | --- | --- |
-| Backend (`npm test`) | 212 / 212 geçti |
+| Backend (`npm test`) | 209 / 209 geçti |
 | Frontend (`npm test`) | 30 / 30 geçti |
 | Production build (`npm run build`) | Başarılı |
 | Chromium tarayıcı testleri (`npm run test:e2e`) | 12 / 12 geçti |
-| Teslim ZIP'ini ayrı klasöre açma + `npm ci` + test + build | Başarılı; 242 test yeniden geçti |
-| Toplam | 254 test geçti |
+| Toplam | 251 test geçti |
 
 Bu toplam önceki takım testlerini de içerir. SCRUM-12 için eklenenler: 21 backend entegrasyon testi, 7 frontend API testi ve 12 tarayıcı testi; toplam 40 yeni test.
 
@@ -20,7 +19,7 @@ Bu toplam önceki takım testlerini de içerir. SCRUM-12 için eklenenler: 21 ba
 - Dört sıralama seçeneğinde UI sırasının API sonucuyla aynı olması.
 - Filtrelerin yenilemede korunması, ürün doğrudan bağlantısı ve browser back.
 - Veritabanı fiyat/stok güncellemesinin ürün detayına yansıması; stok sıfırlandığında ekleme düğmesinin kapanması.
-- Gerçek dosyaya yazılan veri ve misafir sepetinin SQLite kapatılıp yeniden açıldıktan sonra korunması.
+- Katalog fiyatının SQLite dosyası kapatılıp yeniden açıldıktan sonra korunması; misafir sepetinin tarayıcı yenilemesinde korunması.
 - Silinen ürünün liste/sayılardan çıkması ve detayda 404 dönmesi.
 - Boş sonuç ve tükenen ürün davranışı; geçersiz fiyat aralığının açıklanması.
 - Sunucu bağlantı/HTML hata yanıtı sonrası katalog ve detay tekrar denemesi.
@@ -29,4 +28,6 @@ Bu toplam önceki takım testlerini de içerir. SCRUM-12 için eklenenler: 21 ba
 - 390×844 mobil görünümde katalog ve detayın ekran dışına taşmaması.
 - Local demo ekranlarının görsel kontrolü ve yakalanan JavaScript sayfa hatası olmaması.
 
-Tarayıcı testleri demo veritabanından ayrı bir SQLite dosyasıyla çalışır. Ödeme/checkout bu testlerin kapsamında değildir; temel projede uygulanmış değildir. GitHub Actions yapılandırması eklendi ancak remote repository'ye gönderim yapılmadığı için GitHub üzerinde bir CI çalıştırması yapılmadı.
+Tarayıcı testleri demo veritabanından ayrı bir SQLite dosyasıyla çalışır. Ödeme/checkout bu testlerin kapsamında değildir; temel projede uygulanmış değildir. Bu rapor yerel doğrulamayı belirtir. GitHub Actions aynı test/build/tarayıcı akışını scrum-12 push olayında çalıştırır; güncel remote sonuç için Actions/Checks ekranına bak.
+
+Bu sürüm feature/scrum15 temeline taşınmıştır. Önceki 254 toplamındaki 3 SCRUM-14 testi bu görevin kapsamına dahil değildir; SCRUM-12 için 40 yeni test korunur.

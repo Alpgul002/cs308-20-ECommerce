@@ -12,7 +12,7 @@
 <li>“Back to products” ile dön: aynı filtreler korunur. “Reset filters” ile tüm kataloğa dön.</li>
 <li><a href="/?scrum12=1&category=photography#catalog">Photography</a> seç: tükenen ürün görünür ama sepete eklenemez. “In stock only” seçildiğinde boş sonuç gösterilir.</li>
 <li><a href="/?scrum12=1&product=p-999">Olmayan ürün bağlantısını</a> aç: anlaşılır 404 ekranı ve ürünlere dönüş düğmesi gösterilir.</li>
-<li>Bir ürünü sepete ekle, kategori değiştir ve sayfayı yenile: sepet korunur. Bu, mevcut SCRUM-14 sepetiyle uyumluluk kontrolüdür.</li>
+<li>Bir ürünü sepete ekle, kategori değiştir ve sayfayı yenile: sepet korunur. Bu, önceki frontend çalışmasındaki tarayıcı sepetiyle uyumluluk kontrolüdür.</li>
 </ol></section>
 <section><h2>Dosya haritası</h2><table><thead><tr><th>İş</th><th>Başlıca dosyalar</th></tr></thead><tbody>
 <tr><td>Ekranları bağlama</td><td><code>frontend/src/App.jsx</code>, <code>storefront.js</code>, <code>api.js</code></td></tr>
@@ -20,5 +20,5 @@
 <tr><td>Filtreleri doğrulama ve SQL sorgusu</td><td><code>backend/src/catalogFilters.js</code>, <code>catalog.js</code>, <code>app.js</code></td></tr>
 <tr><td>Otomatik doğrulama</td><td><code>backend/test/scrum12.integration.test.js</code>, <code>frontend/src/api.test.js</code>, <code>e2e/scrum12.spec.js</code></td></tr>
 </tbody></table></section>
-<section><h2>Takımın işleriyle sınır</h2><p class="note">Mevcut mağaza tasarımı ve sayfa iskeletleri önceki frontend çalışmalarından; giriş/ürün yönetimi SCRUM-13'ten; kalıcı sepet, yorum ve beğeni SCRUM-14'ten; veritabanı altyapısı ve profil SCRUM-15'ten gelir. Bunlar bu paketin çalışması için korunmuştur. SCRUM-12 katkısı entegrasyon, ek filtreler, hata durumları ve testlerdir.</p><p>Gerçek ödeme, sipariş oluşturma ve checkout bu kapsamda yapılmadı; gönderilen temel projede de hazır değildi.</p><p>Kaynak karşılaştırması, test raporu ve GitHub aktarımı için proje içindeki <code>docs/SCRUM-12_TEAM_NOTES.md</code> dosyasına bak.</p></section>
+<section><h2>Takımın işleriyle sınır</h2><p class="note">Ortak temel feature/scrum15 dalıdır: önceki mağaza tasarımı, frontend, backend, SQLite ve profil çalışmaları korunur. SCRUM-12 katkısı entegrasyon, ek filtreler, hata durumları ve testlerdir. SCRUM-14 kapsamındaki sunucu sepeti, yorum, beğeni ve ödeme geçmişi bu sürüme dahil değildir. Mevcut misafir sepeti tarayıcıda saklanır.</p><p>Gerçek ödeme, sipariş oluşturma ve checkout bu kapsamda yapılmadı; gönderilen temel projede de hazır değildi.</p><p>Kaynak karşılaştırması, test raporu ve GitHub aktarımı için proje içindeki <code>docs/SCRUM-12_TEAM_NOTES.md</code> dosyasına bak.</p></section>
 </main></body></html>

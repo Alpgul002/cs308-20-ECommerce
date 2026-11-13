@@ -4,8 +4,6 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { DEFAULT_BCRYPT_ROUNDS } from "./auth.js";
 import { createAuthRouter } from "./authRoutes.js";
-import { createCartRouter } from "./cartRoutes.js";
-import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
 import { loadSession, rejectForeignOrigins } from "./middleware.js";
 import { createProductAdminRouter } from "./productAdminRoutes.js";
@@ -61,8 +59,6 @@ export function createApp(db, options = {}) {
   });
 
   app.use("/api/products", createProductAdminRouter(db));
-  app.use("/api/cart", createCartRouter(db, cookieSecure));
-  app.use("/api", createShopRouter(db));
 
   app.post("/api/cart/validate", (req, res) => {
     if (!isValidCartInput(req.body?.items)) {

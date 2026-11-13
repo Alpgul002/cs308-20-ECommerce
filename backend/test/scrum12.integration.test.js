@@ -66,26 +66,25 @@ test("SCRUM-12: soft-deleted product disappears from counts/list and detail retu
   assert.equal(categories.find((c) => c.slug === "audio").productCount, 2);
 });
 
-test("SCRUM-12: filters do not affect persisted guest cart", async (t) => {
-  const { app } = fixture(t);
-  const agent = request.agent(app);
-  await agent.put("/api/cart/items/p-101").send({ quantity: 2 }).expect(200);
-  await agent.get("/api/products?category=photography&inStock=true").expect(200);
-  assert.deepEqual((await agent.get("/api/cart")).body.items, [{ productId: "p-101", quantity: 2 }]);
+test("SCRUM-12: filtering does not hide cart items from the stock validation API", async (t) => {
+  const { api } = fixture(t);
+  await api.get("/api/products?category=photography&inStock=true").expect(200);
+  const { body } = await api.post("/api/cart/validate").send({ items: [{ productId: "p-101", quantity: 2 }] }).expect(200);
+  assert.equal(body.valid, true);
+  assert.equal(body.items[0].productId, "p-101");
+  assert.equal(body.subtotalCents, 25998);
 });
 
-test("SCRUM-12: changed inventory and guest cart survive closing/reopening a real SQLite file", async () => {
+test("SCRUM-12: changed inventory survives closing/reopening a real SQLite file", async () => {
   const dir = mkdtempSync(join(tmpdir(), "orbit-scrum12-"));
   let db;
   try {
     db = createDatabase(join(dir, "store.sqlite"));
     db.prepare("UPDATE products SET price_cents = 1234 WHERE id = 'p-101'").run();
-    const response = await request(createApp(db)).put("/api/cart/items/p-101").send({ quantity: 1 }).expect(200);
-    const cookie = response.headers["set-cookie"][0].split(";")[0];
     db.close();
     db = createDatabase(join(dir, "store.sqlite"));
     const api = request(createApp(db));
     assert.equal((await api.get("/api/products/p-101")).body.product.priceCents, 1234);
-    assert.deepEqual((await api.get("/api/cart").set("Cookie", cookie)).body.items, [{ productId: "p-101", quantity: 1 }]);
+    assert.equal((await api.get("/api/products?minPrice=12.34&maxPrice=12.34")).body.products[0].id, "p-101");
   } finally { db?.close(); rmSync(dir, { recursive: true, force: true }); }
 });

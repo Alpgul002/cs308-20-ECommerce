@@ -20,11 +20,11 @@ it("explains network failure", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
   await expect(fetchJson("/api/products")).rejects.toThrow("Cannot reach the store");
 });
-it("sends JSON when saving a cart line", async () => {
-  const fetch = vi.fn().mockResolvedValue(new Response('{"items":[]}'));
+it("serializes JSON request data", async () => {
+  const fetch = vi.fn().mockResolvedValue(new Response('{"ok":true}'));
   vi.stubGlobal("fetch", fetch);
-  await sendJson("/api/cart/items/p-101", "PUT", { quantity: 2 });
-  expect(fetch.mock.calls[0][1]).toMatchObject({ method: "PUT", body: '{"quantity":2}', headers: { "Content-Type": "application/json" } });
+  await sendJson("/api/example", "POST", { value: 2 });
+  expect(fetch.mock.calls[0][1]).toMatchObject({ method: "POST", body: '{"value":2}', headers: { "Content-Type": "application/json" } });
 });
 it("aborts an unresponsive request after ten seconds", async () => {
   vi.useFakeTimers();

@@ -1,116 +1,74 @@
-# SCRUM-12 — Entegrasyon, test ve bug fixing
+# SCRUM-12 — Kapsam ve entegrasyon
 
-## Bilet kapsamı
+## Görev ve ortak temel
 
-Gönderilen sprint ekranındaki SCRUM-12: “filtreleme, ürün sayfası ve anasayfada front end ve database ile entegrasyon ve tüm bu integrasyonların test ve bug fixingleri”.
+Görev: filtreleme, ürün sayfası ve ana sayfanın frontend/backend/veritabanı entegrasyonu, testleri ve hata düzeltmeleri. Bir dalı kimin açtığı görev sahipliğini belirlemez. SCRUM-14 bu görevin parçası değildir.
 
-Bu teslim, verilen ZIP'lerin karşılaştırılmasıyla oluşturuldu. Ana temel `cs308-20-ECommerce-scrum-14.zip`. Bu sürüm SCRUM-13 backend'ini, SCRUM-15 profil/veritabanı çalışmasını ve mevcut frontend ekranlarını içeriyor. Diğer ZIP'ler ayrıca üstüne kopyalanmadı; eski dosyaları yeni dosyaların üzerine yazmamak için içerikleri karşılaştırıldı. Foundation ve SCRUM-10 dosyalarının bu temelde karşılıkları bulunuyor. Kaynak ZIP'lerde Git geçmişi yok; belge, kişi bazında commit sahipliği iddia etmez.
+Git geçmişi: store-foundation → SCRUM-10 → SCRUM-11 → SCRUM-13 → feature/scrum15 → SCRUM-14.
 
-## Ne eklendi?
+Bu sürümün doğrulanmış ortak temeli `feature/scrum15` dalındaki `ee94b1da8e5066a1a1383b20c9a80e8e8df29658` commit'idir. Önceki mağaza tasarımı, frontend sayfaları, katalog/API/SQLite altyapısı, auth/ürün yönetimi ve profil takımın katkıları olarak korunur. Bunlar SCRUM-12 tarafından yazılmış gibi sunulmaz.
 
-| Alan | Önce | SCRUM-12 teslimi |
+Ana sayfa zaten veritabanından ürün çekiyordu; bu görev onu sıfırdan kurmaz. Mevcut misafir sepeti tarayıcı `localStorage` alanındadır. `/api/cart/validate` güncel stok/fiyatı doğrular; checkout yapmaz. SCRUM-14'e ait sunucuda kalıcı sepet, yorum, beğeni ve ödeme geçmişi bu sürümün bağımlılığı değildir. Bu özelliklerin tamamlanmışlığı/doğruluğu hakkında iddiada bulunulmaz.
+
+## SCRUM-12 katkıları
+
+| Alan | Önce | Sonra |
 | --- | --- | --- |
-| Filtreleme | İndirilen listenin tarayıcıda süzülmesi | UI → `/api/products` → SQLite; arama, kategori, sıralama, min/max fiyat ve stok birlikte uygulanır |
-| Ürün detayı | Karttaki nesnenin kopyası gösterilirdi | `/api/products/:id` ile her açılışta yeni veri; ayrıca Refresh product |
-| Adres/yenileme | Seçili ürün ve filtreler React state'inde kaybolurdu | Query string ile doğrudan ürün bağlantısı, yenileme ve browser back desteği |
-| Hata yönetimi | Katalog hatası vardı; detay bağımsız yüklenmezdi | Detay için loading/404/bağlantı hatası/retry, HTML proxy hatası ve 10 sn timeout |
-| Hızlı filtre değişimi | İstek yarışı için ayrı koruma gerekmiyordu | 250 ms gecikme, eski isteği iptal etme ve eski cevabı ekrana uygulamama |
-| Fiyat aralığı | Yok | Ondalıklı fiyatı tam sayı cent'e çevirme; geçersiz ve ters aralığa 400 |
-| Hero | Veri yokken sabit fiyatlı yedek ürün vardı | Sadece API'den alınmış ürün/fiyat ve gerçek detay bağlantısı |
-| Teslim | Kilit dosyası yok | package-lock, npm ci, test/build/browser CI, kapsam rehberi |
+| Arama/kategori/sıralama | Tarayıcı indirilen listeyi süzerdi | Seçimler API'ye gider; SQLite filtreler/sıralar |
+| Fiyat ve stok filtreleri | Yok | Min/max fiyat ve stokta olanlar birlikte uygulanır |
+| Ürün detayı | Karttaki nesne gösterilirdi | Her açılışta yeni GET; güncel fiyat/stok ve Refresh product |
+| Yenileme ve geri gezinme | Seçimler kaybolurdu | Filtre ve ürün query string'de korunur |
+| Hata durumları | Detay için ayrı veri akışı yoktu | Loading, 404, bağlantı hatası, tekrar deneme, timeout |
+| Hızlı arama | Sunucu isteği yarışı yoktu | 250 ms gecikme, iptal ve eski cevabı uygulamama |
+| Hero | Sabit yedek fiyat gösterebilirdi | Gerçek ürün verisi ve detay bağlantısı |
+| Test/kurulum | Önceki takım testleri | 40 yeni test, kilit dosyası ve tarayıcı CI |
 
-## Senin dosyaların
+## Dosyalar
 
-Bu listede “değişen” dosyaların tamamı SCRUM-12 tarafından sıfırdan yazılmış değildir; eski takım kodu korunup ilgili bölümlere entegrasyon eklenmiştir.
+- `frontend/src/App.jsx`: API filtreleri, URL/detail bağlantısı, hero ve hata durumları; mevcut sepet/login/profile akışını koruma.
+- `frontend/src/storefront.js`: URL state ve iptal edilebilir istekler.
+- `frontend/src/ConnectedProductPage.jsx`: bağımsız detay okuma, loading/error/404/retry.
+- `frontend/src/ProductDetailsPage.jsx`: mevcut tasarım üzerinde tekrar okuma düğmesi.
+- `frontend/src/api.js`: JSON, ağ, timeout ve iptal yönetimi.
+- `backend/src/catalogFilters.js`: filtre doğrulaması, fiyatı tam sayı cent'e çevirme.
+- `backend/src/catalog.js`, `backend/src/app.js`: parametreli SQL ve cache politikası.
+- `frontend/src/styles.css`: yeni kontroller ve demo işaretleri.
+- `frontend/src/Scrum12Scope.jsx`, `frontend/public/scrum12.html`: isteğe bağlı kapsam/demo açıklamaları.
+- `backend/test/scrum12.integration.test.js`: 21 API/veritabanı testi.
+- `frontend/src/api.test.js`: 7 JSON/ağ/timeout/iptal testi.
+- `e2e/scrum12.spec.js`: 12 gerçek tarayıcı senaryosu.
+- Paket, Vite, Playwright ve CI ayarları: tekrarlanabilir kurulum/test desteği.
 
-| Dosya | Katkı |
-| --- | --- |
-| `frontend/src/App.jsx` | Değişen: API tabanlı filtreler, gerçek hero verisi, detay yönlendirmesi, fiyat/stok kontrolleri, sepet uyumluluğu |
-| `frontend/src/storefront.js` | Yeni: URL state, filtre query'si, iptal edilebilir veri okuma |
-| `frontend/src/ConnectedProductPage.jsx` | Yeni: detay API çağrısı ve loading/error/404/retry |
-| `frontend/src/ProductDetailsPage.jsx` | Değişen: güncel ürünü gösterme ve tekrar okuma düğmesi; mevcut tasarım/feedback korunur |
-| `frontend/src/api.js` | Değişen: ağ/JSON/timeout hataları, iptal, güncel veri okuma |
-| `backend/src/catalogFilters.js` | Yeni: fiyat/stok dahil filtre parametrelerinin doğrulanması |
-| `backend/src/catalog.js` | Değişen: parametreli SQL'e fiyat ve stok filtreleri |
-| `backend/src/app.js` | Değişen: filtre parser'ı ve katalog/detail cache politikası |
-| `frontend/src/styles.css` | Değişen: yeni filtreler ve isteğe bağlı demo işaretleri |
-| `frontend/src/Scrum12Scope.jsx`, `frontend/public/scrum12.html` | Yeni: sadece demo bağlantısında kapsam açıklamaları |
-| `backend/test/scrum12.integration.test.js` | Yeni: gerçek DB/API entegrasyon regresyonları |
-| `frontend/src/api.test.js` | Yeni: ağ, iptal, timeout ve JSON regresyonları |
-| `e2e/scrum12.spec.js`, `playwright.config.js`, `scripts/e2e-*` | Yeni: ayrı test DB'si ile gerçek tarayıcı testleri |
-| Paket dosyaları, Vite ve CI ayarı | Tekrarlanabilir kurulum/çalıştırma/test desteği |
+Filtre sonuçları sepetin ürün eşleştirme listesinden ayrıdır; başka kategoriye geçince sepet ürünü kaybolmaz. Detaydan kataloğa dönüşte liste ve kategori sayıları tekrar okunur. Eski `frontend/src/catalog.js` yardımcı fonksiyonu/testleri korunur; aktif ekran filtreleri API'yi kullanır.
 
-`frontend/src/catalog.js` ve eski testleri geriye uyumluluk için korunur; ekranın filtreleme kaynağı artık bu yardımcı fonksiyon değildir. Katalog ve kategori verileri açılışta ayrıca okunur; bu tam liste hero ve sepetin ürün eşleştirmesinde kullanılır. Filtre sonucunun ayrı tutulması, başka kategoriye geçince sepetteki ürünün kaybolmasını önler. Ürün sayfasından kataloğa dönüldüğünde liste ve kategori sayıları yeniden okunur.
+## Çalıştırma ve gösterim
 
-## Takım sınırı
+Node.js 24 önerilir. Proje kökünde `npm ci`, ardından `npm run dev`.
 
-- SCRUM-10 / mevcut frontend: ürün sayfası taslağı, login ekranı, sepetten ürüne geçiş ve mevcut mağaza tasarımı korunur.
-- SCRUM-13: auth, roller ve ürün yönetimi backend'i korunur; bunlar SCRUM-12'nin yeni işi olarak sunulmaz.
-- SCRUM-14: kalıcı misafir sepeti, yorum, beğeni, ödeme geçmişi korunur. Bu teslim bunlarla entegrasyonu test eder.
-- SCRUM-15: SQLite şeması/migration ve profil korunur. Yeni paralel veritabanı oluşturulmadı; mevcut yapı kullanılır.
-- SCRUM-11 ZIP'i ayrıca verilmedi. Bu nedenle görünüm/ilk katalog çalışmalarının kişi bazında sahipliği kesinleştirilemez.
-- Checkout, gerçek ödeme ve sipariş oluşturma mevcut temel projede yoktur; bu bilet kapsamında eklenmedi.
+- Normal mağaza: http://localhost:5173/
+- İşaretli demo: http://localhost:5173/?scrum12=1
+- Rehber: http://localhost:5173/scrum12.html
+- Ürün: http://localhost:5173/?scrum12=1&product=p-101
 
-## Local çalıştırma
+SQLite ilk açılışta `backend/data/store.sqlite` olarak oluşur. Ayrı sunucu veya `.env` zorunlu değildir. İlk katalog 9 ürün ve 4 kategoridir. Katalog/kullanıcı verisi SQLite'ta, mevcut misafir sepeti tarayıcıda saklanır. SCRUM-14 ile oluşmuş DB daha yeni şema içerir; bu sürüm için ayrı bir DB/çalışma klasörü kullan. Mevcut kullanıcı verisini silme veya eski şemaya zorla dönüştürme.
 
-Node.js 24 önerilir; Node 22+ destek aralığıdır. Doğrulama Windows / Node 24.22.1 üzerinde yapıldı.
+1. Audio + wireless + 70–130 dolar + In stock only + artan fiyat seç: Earbuds ve Headphones gelir.
+2. Yenile: filtreler korunur. Headphones detayını aç, Refresh product ile yeniden oku.
+3. Geri dön: filtreler kalır. Reset filters ile temizle.
+4. Photography seç: tükenen kamera görünür, ekleme kapalıdır; stok filtresinde boş sonuç gösterilir.
+5. `?product=p-999` aç: bulunamadı ekranını göster.
+6. Sepete ürün ekle, kategori değiştir ve yenile: tarayıcı sepeti korunur.
 
-```sh
-npm ci
-npm run dev
-```
+## Testler
 
-- Mağaza: http://localhost:5173/
-- Açıklamalı demo: http://localhost:5173/?scrum12=1
-- Demo rehberi: http://localhost:5173/scrum12.html
-- Örnek ürün: http://localhost:5173/?scrum12=1&product=p-101
-- API: http://localhost:4000/api/health
+`npx playwright install chromium` ve `npm run check` çalıştır. Yalnız yeni testler: `npm run test:scrum12`.
 
-SQLite ilk açılışta `backend/data/store.sqlite` içinde oluşur. Ayrı veritabanı sunucusu veya `.env` zorunlu değildir. İlk veri seti 9 ürün ve 4 kategoridir. Yerel sepet ve hesap verileri bu dosyada kalır; ZIP/Git'e dahil edilmez.
+Tarayıcı testleri 5174/4001 portlarını ve ayrı geçici SQLite dosyasını kullanır. Demo veritabanına dokunmaz. Fiyat/stok değişimi, silinen ürün, gecikmeli cevap, bağlantı hatası, yenileme, sepet uyumluluğu ve mobil genişlik doğrulanır. Ayrıntılar: `TEST_RESULTS.md`.
 
-5173 veya 4000 doluysa ilgili eski uygulamayı kapat. Vite yanlış porta sessizce kaymaz. API portu değiştirilirse `API_PROXY_TARGET` ve backend `CORS_ORIGIN` değerlerini uyumlu ayarla. Standart komutları proje kökünde çalıştır.
+## GitHub onarımı ve katkı incelemesi
 
-## Gösterimde yapacağın işlem sırası
+İlk `scrum-12` commit'i yalnız README içeren `main` üzerine 25 değişiklik dosyası yüklemişti; ortak proje dosyaları eksikti. Onarım, bu kullanıcı commit'ini ve ortak temel commit'inin geçmişini koruyarak yalnız `scrum-12` dalını günceller. Diğer takım dalları değiştirilmez.
 
-1. Açıklamalı ana sayfayı aç. Mor kutu bu alanın veri bağlantısının senin kapsamın olduğunu belirtir.
-2. Audio seç; `wireless` ara; fiyat 70–130; In stock only; Price: low to high. Earbuds ve Headphones gelir.
-3. Yenile: aynı filtreler ve sonuçlar kalır.
-4. Studio Headphones'ı aç: ID, model, seri no, garanti, distribütör, güncel fiyat/stok gösterilir. Refresh product tekrar veri ister.
-5. Tarayıcı geri düğmesiyle dön: Audio filtresi kalır. Reset filters ile temizle.
-6. Photography seç: sold-out kamera görünür, ekleme düğmesi kapalıdır. In stock only seçilince boş durum görünür.
-7. `?product=p-999` aç: ürün bulunamadı ekranını göster.
-8. Sepete ürün ekle; kategori değiştir ve yenile. Sepet korunur.
-9. İstersen tarayıcının Network bölümünde `/api/products?...` ve `/api/products/p-101` isteklerini göster.
+Yalnız bu görevin farkını görmek için `feature/scrum15...scrum-12` karşılaştırmasını kullan. `main` henüz önceki takım işlerini içermediği için ona karşı karşılaştırma yalnız SCRUM-12'yi göstermez. Geçmişteki diğer görev commit'leri onların katkılarıdır.
 
-Sunumda söyleyebileceğin kısa açıklama: “Ben SCRUM-12 kapsamında mevcut ana sayfa, filtre ve ürün ekranlarının backend/veritabanı bağlantısını tamamladım. Filtreler sunucuya gidiyor, ürün detayı güncel veriyi tekrar okuyor. Yenileme, boş sonuç, tükenen/silinmiş ürün, bağlantı hataları ve istek yarışlarını test ettim. Login, veritabanı altyapısı ve sepetin ana uygulaması takım arkadaşlarının işleri; ben bunlarla uyumunu doğruladım.”
-
-## Testleri yeniden çalıştırma
-
-```sh
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
-```
-
-Hepsi: `npm run check`. Sadece bu biletin yeni testleri: `npm run test:scrum12`.
-
-Tarayıcı testleri 5174 ve 4001 portlarını, geçici ayrı SQLite dosyasını kullanır; local demodaki DB'yi değiştirmez. Test sırasında bir ürün fiyatı/stoku gerçekten DB'de değiştirilir ve ekranın yeni veriyi okuduğu doğrulanır. Test sonrasında bu değerler geri alınır. Ağ hatası ve gecikme senaryoları tarayıcıda kontrollü olarak taklit edilir. Sonuç özeti `TEST_RESULTS.md` dosyasında.
-
-## GitHub'a aktarım
-
-Tam proje ZIP'i tek başına çalıştırılabilir. ZIP'i GitHub'a dosya olarak yüklemek yerine açıp içindeki kaynak dosyaları repository'ye koy. `.github` ve `.gitignore` gibi gizli dosyalar da dahildir.
-
-Takım reposu SCRUM-14 ZIP'iyle aynı durumdaysa, bu teslimdeki `SCRUM12-CHANGES-ONLY.zip` dosyasında yalnız eklenen/değişen kaynaklar bulunur. `SCRUM12.patch` aynı SCRUM-14 tabanına göre üretilmiştir. Takım reposu daha ilerideyse bütün projeyi üstüne kopyalama; dosya farklarını inceleyerek birleştir.
-
-```sh
-git switch -c feature/SCRUM-12-integration
-# İlgili kaynak dosyalarını mevcut çalışma kopyasına taşı.
-npm ci
-npm run check
-git add .
-git commit -m "SCRUM-12 integrate storefront filters and product details with database"
-git push -u origin feature/SCRUM-12-integration
-```
-
-`node_modules`, `frontend/dist`, SQLite verileri, `.env`, test çıktıları ve local logları commit etme. `.gitignore` bunları dışlar. Bu teslimde remote repo'ya push yapılmadı; dosyalar yüklemeye hazırlandı.
+Güncel değişiklik ZIP'i ve patch `feature/scrum15` temelinedir; önceki SCRUM-14 tabanlı paketle karıştırma. `node_modules`, `dist`, `.env`, SQLite ve test çıktıları commit edilmez.

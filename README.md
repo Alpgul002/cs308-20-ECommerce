@@ -1,6 +1,6 @@
 # SCRUM-12 — Çalışan entegrasyon teslimi
 
-Ana sayfa, filtreler ve ürün detayı SQLite/API ile bağlıdır. Verilen SCRUM-14 sürümü temel alınmış, önceki takım çalışmaları korunmuştur.
+Ana sayfa, filtreler ve ürün detayı SQLite/API ile bağlıdır. Doğrulanmış ortak temel `feature/scrum15` (`ee94b1d`) kullanılır; önceki takım çalışmaları korunur. SCRUM-14 sepet/yorum/ödeme özellikleri bu teslimin bağımlılığı değildir.
 
 ```sh
 npm ci
@@ -34,9 +34,14 @@ This is an *initial increment*, not the completed assignment.
 
 ## Local setup
 
-Install **Node.js 22 LTS or later** and npm. Run these commands from the project folder.
+Install **Node.js 22 LTS or later** and npm, then clone the repository.
 
 ```bash
+git clone https://github.com/Alpgul002/cs308-20-ECommerce.git
+cd cs308-20-ECommerce
+# When the feature branch is not yet merged:
+git switch feature/sprint-1-store-foundation
+
 npm install
 npm run dev
 ```
@@ -71,10 +76,7 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 - See stock quantities and keep sold-out products searchable but not addable.
 - View product detail with **ID, name, model, serial number, description,
   quantity in stock, price, warranty status, distributor**.
-- Add, change or remove cart items while signed out. SQLite stores the cart, and an
-  HttpOnly cookie identifies it. Sign-in merges the guest cart into the account cart.
-- Like products and reviews after signing in. A completed purchase permits one review per product.
-- View your payment records and purchased items under My profile.
+- Add/change/remove items in a **guest cart** persisted to browser `localStorage`.
 - Check cart price and current inventory using the backend (no stock reservation).
 - Responsive frontend, working API, separate tests and documented architecture.
 - Backend for registration, login, logout and role checks with hashed passwords and server-side sessions.
@@ -82,8 +84,8 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 
 ## Important: not built yet
 
-Checkout, stock decrements, payment processing, invoice emails/PDF, ratings and review
-approval, wish lists, returns/refunds,
+Connecting the login page to the API, orders, stock-decrement transaction,
+mock banking, invoice emails/PDF, ratings/comments and approval, wish lists, returns/refunds,
 sales/product manager dashboards, and live support chat are **not yet implemented**.
 The interface explicitly says checkout is unavailable; it does **not** simulate a successful order.
 Implement and test these against the requirement list before the progress/final demos.
@@ -100,13 +102,6 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/categories` | Categories with product counts |
 | GET | `/api/products?search=&category=&sort=` | Catalog search/filter/sort |
 | GET | `/api/products/:id` | Full product detail |
-| GET | `/api/cart` | Current guest or account cart |
-| PUT / DELETE | `/api/cart/items/:productId` | Set quantity or remove a cart item |
-| GET | `/api/products/:id/feedback` | Product likes, reviews and review eligibility |
-| POST | `/api/products/:id/feedback/reviews` | Post a review after a completed purchase |
-| PUT | `/api/products/:id/feedback/like` | Set product like status |
-| PUT | `/api/products/:id/feedback/reviews/:reviewId/like` | Set review like status |
-| GET | `/api/account/payments` | Signed-in account payment history |
 | POST | `/api/cart/validate` | Validate guest cart stock/price; **not checkout** |
 | POST | `/api/auth/register` | Create a customer account and sign in |
 | POST | `/api/auth/login` | Sign in |
@@ -114,11 +109,6 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/auth/me` | Current user, 401 when signed out |
 | POST | `/api/products` | Add a product (product manager) |
 | DELETE | `/api/products/:id` | Remove a product (product manager) |
-
-Migration 4 adds `orders`, `order_items` and `payments`. The future checkout flow will
-populate these tables. Preserve product names and unit prices in `order_items` for history,
-and record a completed payment when the order has been paid. The history screen shows an
-empty state until the signed-in account has payment records.
 
 Query sorts: `popular`, `price-asc`, `price-desc`, and `name`.
 
