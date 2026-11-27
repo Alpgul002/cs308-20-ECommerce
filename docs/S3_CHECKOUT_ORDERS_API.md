@@ -12,6 +12,8 @@ Dal `scrum-14` üstüne kurulu, çünkü sepet ve sipariş tabloları orada.
 | GET | `/api/orders/:id` | Sahibi, product manager, sales manager | Tek sipariş |
 | GET | `/api/orders/:id/invoice` | Sahibi, product manager, sales manager | Fatura verisi (ekran ve PDF için) |
 | GET | `/api/orders/:id/invoice.pdf` | Sahibi, product manager, sales manager | Sipariş anındaki verilerle PDF fatura indirir |
+| GET | `/api/orders/:id/invoice/email` | Sahibi, product manager, sales manager | Fatura e-postasının gönderim durumu |
+| POST | `/api/orders/:id/invoice/email/retry` | Sahibi, product manager, sales manager | Başarısız e-posta için yeni gönderim denemesi |
 
 Başkasının siparişini açan müşteri 404 alır; böylece sipariş numaraları yoklanamaz. Support agent şimdilik 403 alır.
 
@@ -86,10 +88,25 @@ Kart numarası ve CVC hiçbir tabloya yazılmaz, yalnızca son dört hane saklan
 - `payments`: `card_last4`.
 - `checkout_attempts`: `(user_id, idempotency_key)` başına bir sonuç.
 
-**Not:** v5 bu dalda kullanıldı; bir sonraki migration v6 olmalı.
+Migration 6 ürün puanlarını, migration 7 sipariş başına tek fatura e-posta kaydını ekler.
+
+## Fatura e-postası
+
+Başarılı ödeme, ödeme anındaki müşteri e-posta adresiyle bir gönderim kaydı oluşturur.
+Arka plan işlemi aynı PDF'yi ek olarak gönderir. Eski siparişler için toplu gönderim başlatılmaz.
+`backend/.env` dosyasında `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` ve sağlayıcı gerektiriyorsa
+`SMTP_USER` ile `SMTP_PASSWORD` değerlerini ayarlayın. Demo için kayıt sırasında test posta
+kutusunun adresini kullanın. SMTP ayarı yoksa yeni faturalar kuyrukta bekler.
+
+Durum uç noktası `{ delivery: { status, attempts, sentAt } }` döndürür.
+Durumlar `pending`, `sending`, `sent` ve `failed`. `sent` SMTP sunucusunun mesajı kabul
+ettiğini belirtir. Başarısız gönderim `POST .../email/retry` ile tekrar kuyruğa alınır
+(202). Bekleyen, gönderilen veya işlemdeki kayıt için tekrar deneme 409 döndürür.
+Yeniden deneme ödeme veya sipariş oluşturmadan aynı kayıt üzerinden işler. SMTP sonucu
+kesinti yüzünden kaydedilemezse deneme 10 dakika sonra başarısız sayılır. Böyle bir durumda
+yeniden denemeden önce test posta kutusunu kontrol edin.
 
 ## Kapsam dışında kalanlar
 
 - **S3-23:** durum geçişleri (`processing` → `in-transit` → `delivered`) ve yönetici teslimat listesi. Şimdilik her sipariş `processing` kalır.
-- **S3-27:** PDF faturanın e-posta ile gönderimi.
 - **S3-28:** değerlendirme kuralı. SCRUM-14'teki kural yalnızca tamamlanmış ödemeye bakıyor, "teslim edildi" şartını henüz aramıyor.

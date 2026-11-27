@@ -1,4 +1,5 @@
 import { HttpError } from "./errors.js";
+import { queueInvoiceEmail } from "./invoiceEmailJobs.js";
 
 export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
 
@@ -90,6 +91,7 @@ export function placeOrder(db, { userId, idempotencyKey, customerName, deliveryA
     db.prepare(`
       INSERT INTO payments (order_id, amount_cents, status, card_last4) VALUES (?, ?, 'completed', ?)
     `).run(orderId, totalCents, payment.cardLast4 ?? null);
+    queueInvoiceEmail(db, orderId, userId);
     db.prepare("DELETE FROM cart_items WHERE cart_id = ?").run(lines[0].cartId);
     recordAttempt.run(userId, idempotencyKey, "approved", orderId, null);
     return { outcome: "approved", orderId, declineReason: null, replayed: false };

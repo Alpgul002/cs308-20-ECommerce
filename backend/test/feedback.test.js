@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Database from "better-sqlite3";
 import request from "supertest";
 import { feedbackEligibility, ratingSummary } from "../src/feedback.js";
 import { createTestApp, signUpCustomer } from "../test-support/helpers.js";
@@ -105,12 +106,11 @@ test("rating updates preserve count, public averages are immediate and likes sta
   assert.equal(db.prepare("SELECT count(*) AS n FROM product_likes").get().n, 0);
 });
 
-test("migration 6 preserves existing reviews and ratings across reruns", async (t) => {
-  const db = createDatabase(":memory:");
+test("migration 6 preserves existing reviews and ratings across reruns", (t) => {
+  const db = new Database(":memory:");
   t.after(() => db.close());
-  // Recreate the schema at v5 to exercise the real upgrade.
-  db.exec("DROP TABLE product_ratings");
-  db.pragma("user_version = 5");
+  db.pragma("foreign_keys = ON");
+  runMigrations(db, migrations.filter((migration) => migration.version <= 5));
   db.prepare("INSERT INTO users (name,email,password_hash,role) VALUES ('Manager','migration@test','hash','product_manager')").run();
   db.prepare("INSERT INTO reviews (product_id,user_id,body) VALUES ('p-101',1,'Existing review')").run();
   runMigrations(db);

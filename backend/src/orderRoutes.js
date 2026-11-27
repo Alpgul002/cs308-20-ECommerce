@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { ROLES } from "./auth.js";
 import { HttpError } from "./errors.js";
+import { invoiceForOrder } from "./invoice.js";
+import { getInvoiceEmailJob, retryInvoiceEmail } from "./invoiceEmailJobs.js";
 import { renderInvoicePdf } from "./invoicePdf.js";
 import { requireAuth, requireRole } from "./middleware.js";
 import { getOrder, listOrdersForUser } from "./orders.js";
@@ -9,9 +11,7 @@ import { getOrder, listOrdersForUser } from "./orders.js";
 // so both may open any order. Support agents get customer context in a later sprint.
 const STAFF_READERS = new Set([ROLES.PRODUCT_MANAGER, ROLES.SALES_MANAGER]);
 
-export function invoiceNumber(orderId) {
-  return `INV-${String(orderId).padStart(6, "0")}`;
-}
+export { invoiceNumber } from "./invoice.js";
 
 export function createOrderRouter(db) {
   const router = Router();
@@ -41,20 +41,7 @@ export function createOrderRouter(db) {
   });
 
   function readableInvoice(req) {
-    const order = readableOrder(req);
-    if (order.payment?.status !== "completed") throw new HttpError(404, "This order has no invoice.");
-    const { email } = db.prepare("SELECT u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.id = ?").get(order.id);
-    return {
-      number: invoiceNumber(order.id),
-      orderId: order.id,
-      issuedAt: order.createdAt,
-      customer: { name: order.customerName, email },
-      deliveryAddress: order.deliveryAddress,
-      items: order.items,
-      totalCents: order.totalCents,
-      currency: order.currency,
-      payment: order.payment
-    };
+    return invoiceForOrder(db, readableOrder(req));
   }
 
   router.get("/:id/invoice", requireAuth, (req, res) => {
@@ -65,6 +52,16 @@ export function createOrderRouter(db) {
     const invoice = readableInvoice(req);
     const pdf = await renderInvoicePdf(invoice);
     res.attachment(`${invoice.number}.pdf`).send(pdf);
+  });
+
+  router.get("/:id/invoice/email", requireAuth, (req, res) => {
+    const invoice = readableInvoice(req);
+    res.json({ delivery: getInvoiceEmailJob(db, invoice.orderId) });
+  });
+
+  router.post("/:id/invoice/email/retry", requireAuth, (req, res) => {
+    const invoice = readableInvoice(req);
+    res.status(202).json({ delivery: retryInvoiceEmail(db, invoice.orderId) });
   });
 
   return router;
