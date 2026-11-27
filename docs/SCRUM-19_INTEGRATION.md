@@ -24,8 +24,9 @@ The integration branch does not update `main` or any teammate branch.
   pass user, sign-in callback and cart busy state through `ConnectedProductPage` to feedback.
 - `api.js`: retain SCRUM-12 cancellation, timeout and cache handling and the JSON write helper.
 - The same application registers catalog, authentication, cart, checkout, orders and feedback.
-- Migration 4 remains the shop schema, 5 checkout and 6 ratings. The next schema version is 7;
-  coordinate it with the database owner instead of editing already-applied migrations.
+- Migration 4 remains the shop schema, 5 checkout and 6 ratings in this baseline.
+  A concurrent email branch already uses v7; review [its handoff](SPRINT3_CONCURRENT_CHANGES.md)
+  with the database owner instead of creating a competing migration or editing existing ones.
 
 ## Verification
 

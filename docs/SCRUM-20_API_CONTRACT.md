@@ -2,6 +2,13 @@
 
 Status: prepared from the merged integration sources on 2026-11-27. **Team agreement is pending. This document is not a sign-off or evidence that the whole sprint is complete.** Examples use fictional data and the existing mock bank only.
 
+**Concurrent upstream changes:** this contract describes the pinned, tested baseline,
+not every branch in the repository. During verification, new PDF/email branches
+appeared: see [concurrent changes](SPRINT3_CONCURRENT_CHANGES.md). Their code is not
+merged here. The email branch already uses **migration v7** and routes under
+`/orders/:id/invoice/email`; do not allocate v7 again or implement conflicting mail
+route proposals below without reviewing that work first.
+
 `SCRUM-20` is the current Jira task for the shared API/error contract. It corresponds to planning item **S3-14**, owned by the former **SCRUM-12 role**. Planning IDs such as **S3-20** are different: S3-20/S3-21/S3-22 describe the former SCRUM-13 role's checkout/payment/order implementation. Their existing implementation and `docs/S3_CHECKOUT_ORDERS_API.md` retain that attribution.
 
 ## 1. Shared rules
@@ -283,7 +290,7 @@ Sources: `backend/src/app.js`, `catalog.js`, `catalogFilters.js`, `productAdminR
 
 ## 8. PROPOSED — NOT IMPLEMENTED; owners must agree before use
 
-These names and payloads are review proposals, **not callable contracts**. None of these features is supplied by this document. The current server has no matching implementation; an authenticated caller generally receives 404. Prefixes/roles/errors must be confirmed by the listed former role owners and recorded against actual Jira tasks.
+These names and payloads are review proposals, **not callable contracts on this baseline**. None of these features is supplied by this document. The current baseline server has no matching implementation; an authenticated caller generally receives 404. PDF/email implementations have since appeared in the concurrent branches linked above. Review their existing routes before adopting the earlier proposals here; delivery and moderation remain separate work. Prefixes/roles/errors must be confirmed by the listed former role owners and recorded against actual Jira tasks.
 
 | Proposed endpoint | Proposed request and success | Proposed access/errors | Former role owner / planning item |
 | --- | --- | --- | --- |
@@ -299,7 +306,7 @@ Proposed delivery rules: only `processing → in-transit → delivered`, record 
 
 ## 9. Schema and sign-off boundary
 
-Current schema is **v6**: v4 cart/order/payment/review tables, v5 checkout/order snapshots/idempotency, v6 product ratings. The next migration number is **7**; coordinate its reservation with the former SCRUM-15 database role and do not edit historical migrations. Delivery timestamps, email jobs and moderation fields are not present yet.
+This tested baseline's schema is **v6**: v4 cart/order/payment/review tables, v5 checkout/order snapshots/idempotency, v6 product ratings. The concurrently published email branch has already used **v7** for email jobs. Coordinate its integration and the next unused number with the former SCRUM-15 database role; do not create a competing v7 or edit historical migrations. Delivery timestamps, email jobs and moderation fields are not present in this baseline.
 
 The checkout team's original API document is retained. Its stale next-migration and delivered-eligibility notes now reflect the merged v6/rating behavior, and its invoice notes disclose the current live email lookup. These documentation corrections do not reassign implementation credit.
 

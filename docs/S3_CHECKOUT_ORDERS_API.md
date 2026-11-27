@@ -86,7 +86,8 @@ Kart numarası ve CVC hiçbir tabloya yazılmaz, yalnızca son dört hane saklan
 - `checkout_attempts`: `(user_id, idempotency_key)` başına bir sonuç.
 
 **Birleşik dal notu (SCRUM-19):** v5 checkout için, v6 ise ürün puanları için kullanıldı.
-Bir sonraki migration v7 olmalı; veritabanı sorumlusuyla koordine edilmeli.
+Çalışma sırasında gelen e-posta dalı v7'yi kullanmıştır; aynı numara yeniden ayrılmamalı.
+Önce [yeni dalların notunu](SPRINT3_CONCURRENT_CHANGES.md) veritabanı sorumlusuyla inceleyin.
 
 ## Kapsam dışında kalanlar
 

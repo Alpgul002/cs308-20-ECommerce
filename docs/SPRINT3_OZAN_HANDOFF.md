@@ -13,7 +13,8 @@ Prepared 2026-11-27. Branch: `feature/ozan-scrum19-20`.
 | SCRUM-25 | Four targeted integration browser tests added under SCRUM-19 | Full demo tests still need delivery, moderation and PDF/email flows |
 | SCRUM-26 | No final demo release claimed | Wait for all required flows and review |
 
-The two commits are separate deliverables, not three completed tasks. The first is
+The two main commits are separate deliverables, not three completed tasks. A later
+documentation-only commit records branches that arrived during verification. The first is
 an integration merge preserving teammate parent commits; do not count their inherited
 commits as your own five meaningful contributions. AI assistance is recorded in the
 commit trailers. Understand the changes and demonstrate them in your own explanation.
@@ -30,3 +31,5 @@ commit trailers. Understand the changes and demonstrate them in your own explana
 
 No teammate branch or `main` was replaced. No Jira task was automatically closed.
 Dependency advisories from clean installation are recorded in `SCRUM-19_TEST_RESULTS.md`.
+The concurrently published invoice PDF/email branches are listed in
+`SPRINT3_CONCURRENT_CHANGES.md`; they are not silently included in this tested snapshot.
