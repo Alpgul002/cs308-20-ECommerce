@@ -34,12 +34,15 @@ export function createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, r
   // before login (session fixation) is never upgraded to a signed-in session.
   function startSession(req, res, userId) {
     const previous = req.cookies?.[SESSION_COOKIE];
-    if (typeof previous === "string") deleteSession(db, previous);
-    purgeExpiredSessions(db);
-    mergeGuestCart(db, req, userId);
+    const { token, expiresAt, adjustments } = db.transaction(() => {
+      if (typeof previous === "string") deleteSession(db, previous);
+      purgeExpiredSessions(db);
+      const adjustments = mergeGuestCart(db, req, userId);
+      return { ...createSession(db, userId), adjustments };
+    }).immediate();
     if (req.cookies?.[GUEST_CART_COOKIE]) res.clearCookie(GUEST_CART_COOKIE, cookieOptions);
-    const { token, expiresAt } = createSession(db, userId);
     res.cookie(SESSION_COOKIE, token, { ...cookieOptions, expires: new Date(expiresAt) });
+    return adjustments;
   }
 
   router.use((_req, res, next) => {
@@ -50,8 +53,8 @@ export function createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, r
   router.post("/register", registerLimiter, async (req, res) => {
     const input = validateRegistration(req.body);
     const user = await registerCustomer(db, input, { rounds: bcryptRounds });
-    startSession(req, res, user.id);
-    res.status(201).json({ user });
+    const cartAdjustments = startSession(req, res, user.id);
+    res.status(201).json({ user, cartAdjustments });
   });
 
   router.post("/login", loginLimiter, async (req, res) => {
@@ -59,8 +62,8 @@ export function createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, r
     const user = await authenticate(db, credentials, { rounds: bcryptRounds });
     // One message for both cases, so the response does not reveal which emails are registered.
     if (!user) throw new HttpError(401, "Invalid email or password.");
-    startSession(req, res, user.id);
-    res.json({ user });
+    const cartAdjustments = startSession(req, res, user.id);
+    res.json({ user, cartAdjustments });
   });
 
   // Returns JSON rather than 204 because the frontend's fetchJson always parses the body.

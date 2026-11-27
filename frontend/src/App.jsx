@@ -35,6 +35,37 @@ async function loadInitialAccount() {
   return { user, ...imported };
 }
 
+const CART_ADJUSTMENT_REASONS = {
+  removed: "Product no longer sold",
+  stock: "Stock changed",
+  item_limit: "Limit of 20 per product",
+  bag_limit: "Limit of 40 different products"
+};
+
+function CartMergeNotice({ adjustments, onDismiss }) {
+  if (adjustments.length === 0) return null;
+  return (
+    <div className="page-container">
+      <div className="shop-panel">
+        <div role="status">
+          <h2>Your bag changed when you signed in</h2>
+          <ul>
+            {adjustments.map(({ productId, name, requestedQuantity, quantity, reason }) => (
+              <li key={productId}>
+                <strong>{name}</strong> · {quantity === 0
+                  ? `Removed (${requestedQuantity})`
+                  : `Reduced from ${requestedQuantity} to ${quantity}`}
+                {" · "}{CART_ADJUSTMENT_REASONS[reason]}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button className="text-action" type="button" onClick={onDismiss}>Dismiss bag changes</button>
+      </div>
+    </div>
+  );
+}
+
 function SectionTitle({ eyebrow, title, children }) {
   return (
     <div className="section-heading">
@@ -216,6 +247,7 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [cartAdjustments, setCartAdjustments] = useState([]);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -340,6 +372,7 @@ export default function App() {
   async function handleLogout() {
     await fetchJson("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
+    setCartAdjustments([]);
     await refreshCart();
     setProfileOpen(false);
     setToast("You have signed out.");
@@ -376,13 +409,14 @@ export default function App() {
       <LoginPage
         onBack={() => setLoginOpen(false)}
         onSubmit={async ({ email, password }) => {
-          const { user: signedInUser } = await fetchJson("/api/auth/login", {
+          const { user: signedInUser, cartAdjustments: adjustments = [] } = await fetchJson("/api/auth/login", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
           });
           setUser(signedInUser);
+          setCartAdjustments(adjustments);
           await refreshCart();
           setLoginOpen(false);
           setToast(`Welcome back, ${signedInUser.name}.`);
@@ -393,9 +427,12 @@ export default function App() {
   if (profileOpen && user) {
     return <ProfilePage user={user} onBack={() => setProfileOpen(false)} onLogout={handleLogout} />;
   }
+  const cartMergeNotice = <CartMergeNotice adjustments={cartAdjustments}
+    onDismiss={() => setCartAdjustments([])} />;
   if (details) {
     return (
       <>
+      {cartMergeNotice}
       <ProductDetailsPage
         product={details}
         user={user}
@@ -440,6 +477,7 @@ export default function App() {
       </header>
 
       <main id="top">
+        {cartMergeNotice}
         <div className="page-container">
           <section className="hero" aria-labelledby="hero-title">
             <div className="hero-text">

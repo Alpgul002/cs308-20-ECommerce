@@ -100,6 +100,11 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 
 Checkout and order details: [docs/S3_CHECKOUT_ORDERS_API.md](docs/S3_CHECKOUT_ORDERS_API.md).
 
+Successful login and registration return `cartAdjustments` alongside `user`. If a guest
+cart was merged, each adjusted line includes `productId`, `name`, `requestedQuantity`,
+`quantity` (zero when removed), and a `reason`: `stock`, `removed`, `item_limit`, or
+`bag_limit`. The storefront shows these changes after sign-in.
+
 Migration 4 adds `orders`, `order_items` and `payments`, and checkout (migration 5) now
 fills them. Product names and unit prices are kept in `order_items` for history, and a
 completed payment is recorded when the order has been paid. The history screen shows an

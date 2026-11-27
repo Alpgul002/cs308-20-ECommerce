@@ -19,12 +19,97 @@ test("guest cart persists in SQLite, stays private, and merges into the account 
   await request(app).get("/api/cart").expect(200, { items: [] });
   await guest.delete(itemUrl).set("Origin", "https://another.example").expect(403);
   const { email, password } = validCustomer();
-  await guest.post("/api/auth/login").send({ email, password }).expect(200);
+  const login = await guest.post("/api/auth/login").send({ email, password }).expect(200);
+  assert.deepEqual(login.body.cartAdjustments, []);
   await guest.get("/api/cart").expect(200, { items: [{ productId: "p-101", quantity: 3 }] });
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM carts WHERE user_id IS NULL").get().n, 0);
+  const retry = request.agent(app);
+  const replay = await retry.post("/api/auth/login").set("Cookie", cookie.split(";")[0])
+    .send({ email, password }).expect(200);
+  assert.deepEqual(replay.body.cartAdjustments, []);
+  await retry.get("/api/cart").expect(200, { items: [{ productId: "p-101", quantity: 3 }] });
   await guest.post("/api/auth/logout").expect(200);
   await guest.get("/api/cart").expect(200, { items: [] });
   await account.delete(itemUrl).expect(200, { items: [] });
+});
+
+test("registration revalidates the guest cart before adopting it and reports each change", async (t) => {
+  const { app, db } = createTestApp();
+  t.after(() => db.close());
+  const guest = request.agent(app);
+  await guest.put("/api/cart/items/p-101").send({ quantity: 4 }).expect(200);
+  await guest.put("/api/cart/items/p-102").send({ quantity: 2 }).expect(200);
+  await guest.put("/api/cart/items/p-103").send({ quantity: 3 }).expect(200);
+  const guestId = db.prepare("SELECT id FROM carts WHERE guest_hash IS NOT NULL").get().id;
+
+  db.exec(`
+    UPDATE products SET stock = 2 WHERE id = 'p-101';
+    UPDATE products SET deleted_at = CURRENT_TIMESTAMP WHERE id = 'p-102';
+    UPDATE products SET stock = 0 WHERE id = 'p-103';
+  `);
+  const { body } = await guest.post("/api/auth/register").send(validCustomer()).expect(201);
+  assert.deepEqual(body.cartAdjustments, [
+    { productId: "p-101", name: "Studio Headphones", requestedQuantity: 4, quantity: 2, reason: "stock" },
+    { productId: "p-102", name: "Pocket Speaker", requestedQuantity: 2, quantity: 0, reason: "removed" },
+    { productId: "p-103", name: "Wireless Earbuds", requestedQuantity: 3, quantity: 0, reason: "stock" }
+  ]);
+  await guest.get("/api/cart").expect(200, { items: [{ productId: "p-101", quantity: 2 }] });
+  assert.deepEqual(db.prepare("SELECT user_id, guest_hash FROM carts WHERE id = ?").get(guestId),
+    { user_id: body.user.id, guest_hash: null });
+});
+
+test("sign-in revalidates existing account lines and explains per-product limits", async (t) => {
+  const { app, db } = createTestApp();
+  t.after(() => db.close());
+  const account = await signUpCustomer(app);
+  const guest = request.agent(app);
+  await account.put("/api/cart/items/p-101").send({ quantity: 6 }).expect(200);
+  await account.put("/api/cart/items/p-102").send({ quantity: 15 }).expect(200);
+  await account.put("/api/cart/items/p-103").send({ quantity: 3 }).expect(200);
+  await guest.put("/api/cart/items/p-101").send({ quantity: 2 }).expect(200);
+  await guest.put("/api/cart/items/p-102").send({ quantity: 10 }).expect(200);
+  await guest.put("/api/cart/items/p-104").send({ quantity: 1 }).expect(200);
+  db.exec(`
+    UPDATE products SET stock = 4 WHERE id = 'p-101';
+    UPDATE products SET stock = 0 WHERE id = 'p-103';
+  `);
+
+  const { email, password } = validCustomer();
+  const { body } = await guest.post("/api/auth/login").send({ email, password }).expect(200);
+  assert.deepEqual(body.cartAdjustments, [
+    { productId: "p-101", name: "Studio Headphones", requestedQuantity: 8, quantity: 4, reason: "stock" },
+    { productId: "p-102", name: "Pocket Speaker", requestedQuantity: 25, quantity: 20, reason: "item_limit" },
+    { productId: "p-103", name: "Wireless Earbuds", requestedQuantity: 3, quantity: 0, reason: "stock" }
+  ]);
+  await account.get("/api/cart").expect(200, { items: [
+    { productId: "p-101", quantity: 4 },
+    { productId: "p-102", quantity: 20 },
+    { productId: "p-104", quantity: 1 }
+  ] });
+});
+
+test("a full account bag keeps its products and reports guest lines exceeding capacity", async (t) => {
+  const { app, db } = createTestApp();
+  t.after(() => db.close());
+  const account = await signUpCustomer(app);
+  const guest = request.agent(app);
+  const addProduct = db.prepare(`
+    INSERT INTO products (id, category_slug, name, brand, model, serial_number,
+      description, stock, price_cents, warranty_months, warranty_status, distributor, image_key, accent)
+    SELECT ?, category_slug, name, brand, model, ?, description, stock, price_cents,
+      warranty_months, warranty_status, distributor, image_key, accent
+    FROM products WHERE id = 'p-101'
+  `);
+  const items = Array.from({ length: 40 }, (_, index) => ({ productId: `p-${200 + index}`, quantity: 1 }));
+  for (const { productId } of items) addProduct.run(productId, productId);
+  await account.post("/api/cart/import").send({ items }).expect(200, { items });
+  await guest.put("/api/cart/items/p-101").send({ quantity: 2 }).expect(200);
+  const { email, password } = validCustomer();
+  const { body } = await guest.post("/api/auth/login").send({ email, password }).expect(200);
+  assert.deepEqual(body.cartAdjustments, [
+    { productId: "p-101", name: "Studio Headphones", requestedQuantity: 2, quantity: 0, reason: "bag_limit" }
+  ]);
+  await guest.get("/api/cart").expect(200, { items });
 });
 
 test("browser cart import can be retried without doubling quantities", async (t) => {
