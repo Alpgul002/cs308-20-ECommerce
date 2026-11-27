@@ -12,6 +12,7 @@ import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
 import { loadSession, rejectForeignOrigins } from "./middleware.js";
 import { createProductAdminRouter } from "./productAdminRoutes.js";
+import { createReviewModerationRouter } from "./reviewModerationRoutes.js";
 import { getCategories, getProduct, getProducts, isValidCartInput, validateCart } from "./catalog.js";
 import { parseCatalogFilters } from "./catalogFilters.js";
 
@@ -65,6 +66,7 @@ export function createApp(db, options = {}) {
   });
 
   app.use("/api/products", createProductAdminRouter(db));
+  app.use("/api/admin/reviews", createReviewModerationRouter(db));
   app.use("/api/cart", createCartRouter(db, cookieSecure));
   app.use("/api/checkout", createCheckoutRouter(db, bank));
   app.use("/api/orders", createOrderRouter(db));

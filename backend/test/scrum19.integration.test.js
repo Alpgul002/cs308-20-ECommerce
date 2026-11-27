@@ -27,6 +27,7 @@ test("SCRUM-19 upgrades a v3 catalog without losing product edits and mounts eve
     const feedback = await request(app).get("/api/products/p-101/feedback").expect(200);
     assert.deepEqual(feedback.body.rating, { average: null, count: 0, myRating: null });
     await request(app).get("/api/orders").expect(401);
+    await request(app).get("/api/admin/reviews").expect(401);
     await request(app).post("/api/checkout").send({}).expect(401);
   } finally { db.close(); }
 });

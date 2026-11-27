@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import request from "supertest";
-import { createTestApp, signUpCustomer, validCustomer } from "../test-support/helpers.js";
+import { ROLES } from "../src/auth.js";
+import { createTestApp, signInAsStaff, signUpCustomer, validCustomer } from "../test-support/helpers.js";
 
 test("guest cart persists in SQLite, stays private, and merges into the account at sign-in", async (t) => {
   const { app, db } = createTestApp();
@@ -143,8 +144,11 @@ test("reviews require a completed purchase of that product and payment history i
   await buyer.post("/api/products/p-102/feedback/reviews").send(review).expect(403);
   await buyer.post(path + "/reviews").send(review).expect(403);
   db.prepare("UPDATE orders SET status = 'delivered' WHERE id = ?").run(orderId);
-  await buyer.post(path + "/reviews").send(review).expect(201);
+  const submission = await buyer.post(path + "/reviews").send(review).expect(201);
   await buyer.post(path + "/reviews").send(review).expect(409);
+  const reviewId = submission.body.review.id;
+  const manager = await signInAsStaff(app, db, ROLES.PRODUCT_MANAGER);
+  await manager.patch(`/api/admin/reviews/${reviewId}`).send({ status: "approved" }).expect(200);
 
   await other.put(path + "/like").send({ liked: true }).expect(200);
   await other.put(path + "/like").send({ liked: true }).expect(200);

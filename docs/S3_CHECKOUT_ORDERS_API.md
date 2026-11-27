@@ -88,7 +88,7 @@ Kart numarası ve CVC hiçbir tabloya yazılmaz, yalnızca son dört hane saklan
 - `payments`: `card_last4`.
 - `checkout_attempts`: `(user_id, idempotency_key)` başına bir sonuç.
 
-Migration 6 ürün puanlarını, migration 7 fatura e-posta kayıtlarını ekler.
+Migration 6 ürün puanlarını, migration 7 fatura e-posta kayıtlarını ve migration 8 yorum onay alanlarını ekler.
 
 ## Fatura e-postası
 
@@ -110,7 +110,7 @@ yeniden denemeden önce test posta kutusunu kontrol edin.
 
 - **S3-23:** durum geçişleri (`processing` → `in-transit` → `delivered`) ve yönetici teslimat listesi. Şimdilik her sipariş `processing` kalır.
 - **S3-05 ve S3-09:** yıldız puanı formu ve ürün sayfasındaki puan özeti. Puan API'si S3-29 ile hazır.
-- **S3-30:** yorum onayı ve görünürlük.
+- **S3-10:** ürün yöneticisinin yorum onay ekranı. Onay ve ret API'si S3-30 ile hazır.
 
 Fatura ad/adres/ürün/fiyat verileri sipariş anından gelir; müşteri e-postası şu anda
 güncel kullanıcı kaydından okunur. PDF dosyası ve e-posta gönderimi bu JSON ucunun parçası değildir.

@@ -181,14 +181,20 @@ Implementation limits: lookup is by `(user_id, idempotency_key)`; the request bo
 
 Sources/credit: former SCRUM-13 role, planning S3-20/S3-21, `backend/src/checkoutRoutes.js`, `checkout.js`, `bank.js`, `orderSchema.js`.
 
-## 5. Orders, invoice JSON and payment history — IMPLEMENTED
+## 5. Orders, invoices and payment history — IMPLEMENTED
 
 | Method and path | Access | 200 response | Expected failures |
 | --- | --- | --- | --- |
 | GET `/orders` | Customer only | `{ "orders": [order] }`, newest timestamp then ID first | 401/403 |
 | GET `/orders/1` | Authenticated owner, product manager or sales manager | `{ "order": order }` | 401; foreign customer/missing order 404; non-owner support agent 403 |
 | GET `/orders/1/invoice` | Same as order detail; latest payment must be completed | `{ "invoice": invoice }` | Same as detail; no completed payment 404 |
+| GET `/orders/1/invoice.pdf` | Same as invoice JSON | PDF attachment named `INV-000001.pdf` | Same as invoice JSON; 409 inconsistent payment total |
+| GET `/orders/1/invoice/email` | Same as invoice JSON | `{ "delivery": { "status": "pending", "attempts": 0, "sentAt": null } }` | Same as invoice JSON; 404 if email was never queued |
 | GET `/account/payments` | Any authenticated user, own records only | `{ "payments": [paymentRecord] }` | 401 |
+
+POST `/orders/1/invoice/email/retry` uses invoice access rules and returns 202 with the same
+`delivery` object. Only a failed job can be requeued. Other job states return 409. SMTP
+configuration and status semantics are in [S3_CHECKOUT_ORDERS_API.md](S3_CHECKOUT_ORDERS_API.md).
 
 `order` is the object in the checkout example. Legacy orders can have null customer/address fields, and `payment` can be null. Status values in the schema are `processing`, `in-transit`, `delivered`; checkout creates `processing`. **There is currently no HTTP operation to advance the status.**
 
@@ -225,7 +231,7 @@ Payment history does not include order delivery status, `cardLast4` or `lineTota
 
 Sources/credit: order/invoice JSON, former SCRUM-13 role (planning S3-22), `orderRoutes.js`, `orders.js`; older payment history, former SCRUM-14 role, `shopRoutes.js`.
 
-## 6. Product feedback — IMPLEMENTED, moderation still absent
+## 6. Product feedback and review moderation — IMPLEMENTED
 
 For an existing active product, GET `/products/p-101/feedback` is public. Missing/deleted products return 404. Example for a signed-in customer with an eligible delivered purchase and no previous review:
 
@@ -233,7 +239,7 @@ For an existing active product, GET `/products/p-101/feedback` is public. Missin
 {
   "likes": 0, "liked": 0, "reviews": [],
   "eligibility": { "eligible": true, "reason": null },
-  "canReview": true, "reviewReason": null, "canRate": true,
+  "canReview": true, "reviewReason": null, "myReviewStatus": null, "canRate": true,
   "rating": { "average": null, "count": 0, "myRating": null }
 }
 ```
@@ -243,13 +249,28 @@ For an existing active product, GET `/products/p-101/feedback` is public. Missin
 | Method and path | Request | Success | Expected failures |
 | --- | --- | --- | --- |
 | PUT `/products/p-101/feedback/rating` | `{ "value": 5 }` | 200 `{ "rating": { "average": 5, "count": 1, "myRating": 5 } }` | 400 noninteger/outside 1–5; 401; 403 ineligible; 404 product |
-| POST `/products/p-101/feedback/reviews` | `{ "body": "Useful product." }` | 201 `{ "ok": true }` | 400 empty/>2000 trimmed characters; 401; 403 ineligible; 404 product; 409 already reviewed |
+| POST `/products/p-101/feedback/reviews` | `{ "body": "Useful product." }` | 201 `{ "ok": true, "review": { "id": 1, "status": "pending" } }` | 400 empty/>2000 trimmed characters; 401; 403 ineligible; 404 product; 409 already reviewed |
 | PUT `/products/p-101/feedback/like` | `{ "liked": true }` | 200 `{ "ok": true }` | 400 nonboolean; 401; 404 product |
-| PUT `/products/p-101/feedback/reviews/1/like` | `{ "liked": false }` | 200 `{ "ok": true }` | 400 nonboolean; 401; 404 product/review |
+| PUT `/products/p-101/feedback/reviews/1/like` | `{ "liked": false }` | 200 `{ "ok": true }` | 400 nonboolean; 401; 404 missing product or unpublished review |
 
-All writes require authentication; rating/review writes additionally check purchase eligibility, not a separate customer-role guard. Likes require no purchase. One rating exists per user/product: another PUT updates it without increasing count. Ratings appear immediately; average is arithmetic, not rounded by the server. **Current review POST/GET publish comments immediately. There is no pending/approval status or moderator endpoint yet.** Do not describe this as completed moderation.
+Public feedback lists only approved reviews. `myReviewStatus` returns the signed-in user's
+own status, or `null` for visitors and users without a review. Rating and review writes require
+authentication and purchase eligibility. Likes require authentication. Another rating PUT
+updates the user's score without increasing the count. Ratings appear immediately and their
+average is arithmetic.
 
-Sources/credit: former SCRUM-14 role, planning S3-28/S3-29, `shopRoutes.js`, `feedback.js`, `shopSchema.js`.
+| Method and path | Request | Success | Expected failures |
+| --- | --- | --- | --- |
+| GET `/admin/reviews?status=pending` | Optional `status` defaults to `pending`. Pass `after=<id>` for the next page. | 200 `{ "reviews": [], "nextAfter": null }`. Up to 50 rows in ascending ID order. | 400 invalid filter or cursor; 401/403 |
+| PATCH `/admin/reviews/1` | `{ "status": "approved" }` or `{ "status": "rejected" }` | 200 `{ "review": { "id": 1, "status": "approved", "moderatedBy": 2, "moderatedAt": "2026-11-27T12:00:00.000Z" } }` | 400 invalid ID/status; 401/403; 404 missing; 409 `review_already_decided` |
+
+Only a product manager can use these admin routes. Each queue row has `id`, `productId`,
+`productName`, `authorId`, `author`, `body`, `createdAt`, `status`, `moderatedBy`,
+and `moderatedAt`. Migration 8 preserves earlier comments and likes and places the comments
+in the pending queue for a manager's decision.
+
+Code for planning items S3-28, S3-29 and S3-30 is in `shopRoutes.js`, `feedback.js`,
+`reviewModerationRoutes.js` and `reviewSchema.js`.
 
 ## 7. Catalog — IMPLEMENTED
 
@@ -289,18 +310,18 @@ These names and payloads are review proposals, **not callable contracts**. None 
 | --- | --- | --- | --- |
 | GET `/admin/deliveries` | 200 `{ "orders": [] }` using order detail fields including address/items | Product manager; 401/403 | SCRUM-13 / S3-23; UI SCRUM-10 / S3-06 |
 | PATCH `/orders/1/status` | `{ "status": "in-transit" }` → 200 `{ "orderId": 1, "status": "in-transit", "deliveredAt": null }` | Product manager; 400 bad value, 401/403, 404 missing, 409 `invalid_order_transition` | SCRUM-13 / S3-23 |
-| GET `/orders/1/invoice.pdf` | 200 `application/pdf`, download named `INV-000001.pdf` | Same access as invoice JSON; 401/403/404 | SCRUM-14 / S3-26; access coordination SCRUM-13 / S3-22 |
-| GET `/orders/1/invoice-email` | 200 `{ "orderId": 1, "status": "pending", "attempts": 0, "lastAttemptAt": null, "sentAt": null }` | Customer owner or sales manager; 401/403/404 | SCRUM-14 / S3-27 |
-| POST `/orders/1/invoice-email/retry` | No body → 202 `{ "orderId": 1, "status": "pending" }`; never calls checkout | Customer owner or sales manager; 401/403/404; 409 `email_job_active` | SCRUM-14 / S3-27 |
-| GET `/admin/reviews?status=pending` | 200 `{ "reviews": [] }`, including review ID/product/author/body/status/creation time | Product manager; 400 bad status, 401/403 | SCRUM-14 / S3-30; UI SCRUM-11 / S3-10 |
-| PATCH `/admin/reviews/1` | `{ "status": "approved" }` → 200 `{ "review": { "id": 1, "status": "approved", "moderatedBy": 2, "moderatedAt": "2026-11-27T12:00:00.000Z" } }` | Product manager; 400 bad status, 401/403/404, 409 `review_already_decided` | SCRUM-14 / S3-30 |
 
-Proposed delivery rules: only `processing → in-transit → delivered`, record delivery time, reject reverse/skipped transitions. Proposed mail states: `pending`, `sent`, `failed`; retry only a failed job and rate-limit independently of payment. A provider message ID must not expose credentials. Proposed moderation: new comments become `pending`; public GET returns only approved comments; POST then returns 201 `{ "review": { "id": 1, "status": "pending" } }`. This is a deliberate future change to today's `{ ok: true }` response, requiring client updates. Rating visibility stays immediate. Migration of existing reviews and exact mail authorization/idempotency are unresolved decisions, not silently assumed policies.
+The proposed delivery flow accepts `processing → in-transit → delivered`, records the
+delivery time, and rejects reversed or skipped transitions.
 
 ## 9. Schema and sign-off boundary
 
-Current schema is **v6**: v4 cart/order/payment/review tables, v5 checkout/order snapshots/idempotency, v6 product ratings. The next migration number is **7**; coordinate its reservation with the former SCRUM-15 database role and do not edit historical migrations. Delivery timestamps, email jobs and moderation fields are not present yet.
+The current schema is **v8**. Migration 4 adds carts, orders, payments and reviews,
+migration 5 adds checkout snapshots and idempotency, migration 6 adds ratings, migration 7
+adds invoice email jobs, and migration 8 adds review moderation. Delivery timestamps are
+part of S3-23. Coordinate the next migration with the schema owner.
 
-The checkout team's original API document is retained. Its stale next-migration and delivered-eligibility notes now reflect the merged v6/rating behavior, and its invoice notes disclose the current live email lookup. These documentation corrections do not reassign implementation credit.
+The [checkout API notes](S3_CHECKOUT_ORDERS_API.md) describe the order snapshots,
+invoice JSON email lookup, and recipient recorded when checkout queues an invoice email.
 
 SCRUM-20 can be described as a prepared and verified contract proposal once adapter checks pass. Its “agreed by the team” criterion remains open until owners confirm the implemented and proposed interfaces. This work does not complete SCRUM-21 checkout UI integration, SCRUM-25 full demo tests or SCRUM-26 release.

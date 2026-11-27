@@ -25,15 +25,16 @@ export function createShopRouter(db) {
         (SELECT count(*) FROM review_likes WHERE review_id = r.id) AS likes,
         EXISTS (SELECT 1 FROM review_likes WHERE review_id = r.id AND user_id = ?) AS liked
       FROM reviews r JOIN users u ON u.id = r.user_id
-      WHERE r.product_id = ? ORDER BY r.id DESC
+      WHERE r.product_id = ? AND r.moderation_status = 'approved' ORDER BY r.id DESC
     `).all(userId, productId);
-    const existing = db.prepare("SELECT 1 FROM reviews WHERE product_id = ? AND user_id = ?")
+    const existing = db.prepare("SELECT moderation_status AS status FROM reviews WHERE product_id = ? AND user_id = ?")
       .get(productId, userId);
     const eligibility = feedbackEligibility(db, productId, userId);
     res.json({
       ...productLikes, reviews, eligibility,
       canReview: eligibility.eligible && !existing,
       reviewReason: existing ? "already_reviewed" : eligibility.reason,
+      myReviewStatus: existing?.status ?? null,
       canRate: eligibility.eligible,
       rating: ratingSummary(db, productId, userId)
     });
@@ -44,17 +45,19 @@ export function createShopRouter(db) {
     if (!body || body.length > 2000) throw new HttpError(400, "Enter a review of 1 to 2,000 characters.");
     const productId = req.params.id;
     const userId = req.user.id;
-    db.transaction(() => {
+    const review = db.transaction(() => {
       if (!feedbackEligibility(db, productId, userId).eligible) {
         throw new HttpError(403, "You can review products after your paid order is delivered.");
       }
-      const result = db.prepare(`
+      const inserted = db.prepare(`
         INSERT INTO reviews (product_id, user_id, body) VALUES (?, ?, ?)
         ON CONFLICT (product_id, user_id) DO NOTHING
-      `).run(productId, userId, body);
-      if (!result.changes) throw new HttpError(409, "You have already reviewed this product.");
+        RETURNING id, moderation_status AS status
+      `).get(productId, userId, body);
+      if (!inserted) throw new HttpError(409, "You have already reviewed this product.");
+      return inserted;
     }).immediate();
-    res.status(201).json({ ok: true });
+    res.status(201).json({ ok: true, review });
   });
 
   router.put("/products/:id/feedback/rating", requireAuth, (req, res) => {
@@ -89,8 +92,9 @@ export function createShopRouter(db) {
 
   router.put("/products/:id/feedback/reviews/:reviewId/like", requireAuth, (req, res) => {
     if (typeof req.body?.liked !== "boolean") throw new HttpError(400, "Send a boolean liked value.");
-    const review = db.prepare("SELECT id FROM reviews WHERE id = ? AND product_id = ?")
-      .get(req.params.reviewId, req.params.id);
+    const review = db.prepare(`
+      SELECT id FROM reviews WHERE id = ? AND product_id = ? AND moderation_status = 'approved'
+    `).get(req.params.reviewId, req.params.id);
     if (!review) throw new HttpError(404, "Review not found.");
     const sql = req.body.liked
       ? "INSERT OR IGNORE INTO review_likes (review_id, user_id) VALUES (?, ?)"

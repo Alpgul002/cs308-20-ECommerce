@@ -1,5 +1,6 @@
 import { addProductRatings } from "./feedback.js";
 import { addInvoiceEmailJobs } from "./invoiceEmailJobs.js";
+import { addReviewModeration } from "./reviewSchema.js";
 import { seedCatalog } from "./seed.js";
 import { addCheckoutColumns } from "./orderSchema.js";
 import { createShopTables } from "./shopSchema.js";
@@ -88,7 +89,8 @@ export const migrations = [
   { version: 4, name: "carts-purchases-and-reviews", up: createShopTables },
   { version: 5, name: "checkout-orders-and-idempotency", up: addCheckoutColumns },
   { version: 6, name: "product-ratings", up: addProductRatings },
-  { version: 7, name: "invoice-email-jobs", up: addInvoiceEmailJobs }
+  { version: 7, name: "invoice-email-jobs", up: addInvoiceEmailJobs },
+  { version: 8, name: "review-moderation", up: addReviewModeration }
 ];
 
 export function runMigrations(db, list = migrations) {

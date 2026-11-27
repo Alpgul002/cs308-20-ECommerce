@@ -8,6 +8,11 @@ const ELIGIBILITY_MESSAGES = {
   already_reviewed: "You have already reviewed this product."
 };
 
+const REVIEW_STATUS_MESSAGES = {
+  pending: "Your review is awaiting approval.",
+  rejected: "Your review was declined."
+};
+
 function LikeButton({ liked, likes, disabled, label, onClick }) {
   return (
     <button type="button" className="text-action" disabled={disabled}
@@ -60,7 +65,7 @@ export default function ProductFeedback({ productId, user, onSignIn }) {
       {feedback && <>
         <LikeButton {...feedback} label="Like this product" disabled={busy}
           onClick={() => update("/like", "PUT", { liked: !feedback.liked })} />
-        {feedback.reviews.length === 0 && <p>No reviews yet.</p>}
+        {feedback.reviews.length === 0 && <p>No published reviews yet.</p>}
         {feedback.reviews.map((review) => (
           <article key={review.id} className="shop-record">
             <strong>{review.author}</strong>
@@ -78,11 +83,15 @@ export default function ProductFeedback({ productId, user, onSignIn }) {
             <textarea id="review-body" value={body} maxLength={2000} rows={4} required
               onChange={(event) => setBody(event.target.value)} />
             <button className="primary-button" type="submit" disabled={busy || !body.trim()}>
-              Post review
+              Submit review
             </button>
           </form>
         )}
-        {!feedback.canReview && <p>{ELIGIBILITY_MESSAGES[feedback.reviewReason]}</p>}
+        {!feedback.canReview && (
+          <p role="status">
+            {REVIEW_STATUS_MESSAGES[feedback.myReviewStatus] ?? ELIGIBILITY_MESSAGES[feedback.reviewReason]}
+          </p>
+        )}
       </>}
     </section>
   );

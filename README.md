@@ -82,6 +82,7 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 - Add, change or remove cart items while signed out. SQLite stores the cart, and an
   HttpOnly cookie identifies it. Sign-in merges the guest cart into the account cart.
 - Like products and published reviews after signing in. A paid, delivered purchase permits one review per product.
+- Product managers can approve or reject submitted reviews. The product page only shows approved reviews.
 - Create orders through the checkout API, with atomic stock changes and idempotent mock payment.
 - Read order history and invoice JSON through authorized APIs; submit 1-5 ratings for delivered purchases.
 - View your payment records and purchased items under My profile.
@@ -92,8 +93,8 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 
 ## Important: not built yet
 
-The checkout, order-history, and star-rating screens, delivery status
-updates, review approval, wish lists, returns/refunds,
+The checkout, order-history, star-rating and review moderation screens, delivery status
+updates, wish lists, returns/refunds,
 sales/product manager dashboards, and live support chat are **not yet implemented**.
 The interface explicitly says checkout is unavailable; the backend API is implemented
 but has not yet been connected to a checkout screen.
@@ -114,7 +115,9 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/cart` | Current guest or account cart |
 | PUT / DELETE | `/api/cart/items/:productId` | Set quantity or remove a cart item |
 | GET | `/api/products/:id/feedback` | Product likes, reviews and review eligibility |
-| POST | `/api/products/:id/feedback/reviews` | Submit a review after a paid, delivered purchase |
+| POST | `/api/products/:id/feedback/reviews` | Submit a review for approval after a paid, delivered purchase |
+| GET | `/api/admin/reviews?status=pending` | Read the review queue (product manager) |
+| PATCH | `/api/admin/reviews/:id` | Approve or reject a pending review (product manager) |
 | PUT | `/api/products/:id/feedback/like` | Set product like status |
 | PUT | `/api/products/:id/feedback/reviews/:reviewId/like` | Set review like status |
 | GET | `/api/account/payments` | Signed-in account payment history |
@@ -176,6 +179,7 @@ rating update use the shared eligibility rule.
 - `eligibility: { eligible, reason }`, where reason is `sign_in_required`,
   `purchase_required`, `delivery_required`, or null.
 - `canReview` and `reviewReason` (also `already_reviewed` for an existing comment).
+- `myReviewStatus` for the signed-in user's own review, or `null`.
 - `canRate` and `rating: { average, count, myRating }`. An unrated product returns
   `{ average: null, count: 0, myRating: null }`.
 
