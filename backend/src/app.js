@@ -4,6 +4,8 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { DEFAULT_BCRYPT_ROUNDS } from "./auth.js";
 import { createAuthRouter } from "./authRoutes.js";
+import { createMockBank } from "./bank.js";
+import { createCheckoutRouter } from "./checkoutRoutes.js";
 import { createCartRouter } from "./cartRoutes.js";
 import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
@@ -23,7 +25,8 @@ export function createApp(db, options = {}) {
     cookieSecure = process.env.NODE_ENV === "production",
     bcryptRounds = DEFAULT_BCRYPT_ROUNDS,
     loginLimit = 10,
-    registerLimit = 30
+    registerLimit = 30,
+    bank = createMockBank()
   } = options;
 
   const app = express();
@@ -64,6 +67,7 @@ export function createApp(db, options = {}) {
 
   app.use("/api/products", createProductAdminRouter(db));
   app.use("/api/cart", createCartRouter(db, cookieSecure));
+  app.use("/api/checkout", createCheckoutRouter(db, bank));
   app.use("/api", createShopRouter(db));
 
   app.post("/api/cart/validate", (req, res) => {
