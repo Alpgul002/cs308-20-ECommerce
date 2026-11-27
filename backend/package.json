@@ -16,7 +16,8 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.3",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "pdfkit": "0.21.0"
   },
   "devDependencies": {
     "supertest": "^7.1.1"

@@ -31,6 +31,13 @@ async function buy(agent, lines, { cardNumber, expect = 201 } = {}) {
   return response.body.order;
 }
 
+function readPdf(response, callback) {
+  const chunks = [];
+  response.on("data", (chunk) => chunks.push(chunk));
+  response.on("error", callback);
+  response.on("end", () => callback(null, Buffer.concat(chunks)));
+}
+
 // ---- History -----------------------------------------------------------------------------
 
 test("guests cannot read orders or invoices", async () => {
@@ -128,6 +135,40 @@ test("the owner gets invoice data whose total equals the payment", async () => {
   assert.equal(invoice.totalCents, 31497);
   assert.equal(invoice.payment.amountCents, invoice.totalCents);
   assert.equal(invoice.payment.cardLast4, "4242");
+});
+
+test("PDF download uses the paid order snapshot after catalog and profile edits", async () => {
+  const order = await buy(ayse, [["p-101", 2], ["p-106", 1]]);
+  const url = `/api/orders/${order.id}/invoice.pdf`;
+  const before = await ayse.get(url).buffer(true).parse(readPdf).expect(200)
+    .expect("Content-Type", /application\/pdf/)
+    .expect("Cache-Control", "no-store");
+  assert.equal(before.headers["content-disposition"].replaceAll('"', ""),
+    `attachment; filename=${invoiceNumber(order.id)}.pdf`);
+  assert.equal(before.body.subarray(0, 5).toString(), "%PDF-");
+
+  db.exec(`
+    UPDATE products SET name = 'Changed name', price_cents = 1 WHERE id = 'p-101';
+    UPDATE users SET name = 'Changed customer', home_address = 'Changed address' WHERE email = 'ayse@example.com';
+  `);
+  const after = await ayse.get(url).buffer(true).parse(readPdf).expect(200);
+  assert.deepEqual(after.body, before.body);
+});
+
+test("PDF download reuses invoice authorization and rejects unpaid or inconsistent orders", async () => {
+  const order = await buy(ayse, [["p-101", 1]]);
+  const url = `/api/orders/${order.id}/invoice.pdf`;
+  const support = await signInAsStaff(app, db, ROLES.SUPPORT_AGENT);
+  const sales = await signInAsStaff(app, db, ROLES.SALES_MANAGER);
+  await request(app).get(url).expect(401);
+  await mert.get(url).expect(404);
+  await support.get(url).expect(403);
+  await sales.get(url).buffer(true).parse(readPdf).expect(200);
+
+  db.prepare("UPDATE payments SET status = 'pending' WHERE order_id = ?").run(order.id);
+  await ayse.get(url).expect(404);
+  db.prepare("UPDATE payments SET status = 'completed', amount_cents = 1 WHERE order_id = ?").run(order.id);
+  await ayse.get(url).expect(409);
 });
 
 test("U20 a customer who does not own the order cannot read its invoice", async () => {

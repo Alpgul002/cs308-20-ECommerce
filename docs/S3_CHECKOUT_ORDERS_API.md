@@ -11,6 +11,7 @@ Dal `scrum-14` üstüne kurulu, çünkü sepet ve sipariş tabloları orada.
 | GET | `/api/orders` | Giriş yapmış müşteri | Kendi siparişleri, yeniden eskiye |
 | GET | `/api/orders/:id` | Sahibi, product manager, sales manager | Tek sipariş |
 | GET | `/api/orders/:id/invoice` | Sahibi, product manager, sales manager | Fatura verisi (ekran ve PDF için) |
+| GET | `/api/orders/:id/invoice.pdf` | Sahibi, product manager, sales manager | Sipariş anındaki verilerle PDF fatura indirir |
 
 Başkasının siparişini açan müşteri 404 alır; böylece sipariş numaraları yoklanamaz. Support agent şimdilik 403 alır.
 
@@ -90,5 +91,5 @@ Kart numarası ve CVC hiçbir tabloya yazılmaz, yalnızca son dört hane saklan
 ## Kapsam dışında kalanlar
 
 - **S3-23:** durum geçişleri (`processing` → `in-transit` → `delivered`) ve yönetici teslimat listesi. Şimdilik her sipariş `processing` kalır.
-- **S3-26 ve S3-27:** PDF fatura ve e-posta. Fatura verisi `/invoice` ucundan alınabilir.
+- **S3-27:** PDF faturanın e-posta ile gönderimi.
 - **S3-28:** değerlendirme kuralı. SCRUM-14'teki kural yalnızca tamamlanmış ödemeye bakıyor, "teslim edildi" şartını henüz aramıyor.

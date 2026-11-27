@@ -36,6 +36,12 @@ export default function PaymentHistory() {
               </li>
             ))}
           </ul>
+          {payment.status === "completed" && (
+            <a href={`/api/orders/${payment.orderId}/invoice.pdf`}
+              aria-label={`Download PDF invoice for order ${payment.orderId}`}>
+              Download PDF invoice
+            </a>
+          )}
         </article>
       ))}
     </section>

@@ -13,11 +13,12 @@ function withDetails(db, row) {
     FROM order_items WHERE order_id = ? ORDER BY rowid
   `).all(row.id).map((item) => ({ ...item, lineTotalCents: item.unitPriceCents * item.quantity }));
   const payment = db.prepare(`
-    SELECT status, amount_cents AS amountCents, card_last4 AS cardLast4
+    SELECT status, amount_cents AS amountCents, card_last4 AS cardLast4, currency
     FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1
   `).get(row.id) ?? null;
   const { userId, ...order } = row;
-  return { ...order, currency: "USD", items, payment: payment && { ...payment } };
+  const { currency = "USD", ...paymentDetails } = payment ?? {};
+  return { ...order, currency, items, payment: payment ? paymentDetails : null };
 }
 
 // Newest first. The customer's own history (PDF item 3).

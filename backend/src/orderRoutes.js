@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ROLES } from "./auth.js";
 import { HttpError } from "./errors.js";
+import { renderInvoicePdf } from "./invoicePdf.js";
 import { requireAuth, requireRole } from "./middleware.js";
 import { getOrder, listOrdersForUser } from "./orders.js";
 
@@ -39,25 +40,31 @@ export function createOrderRouter(db) {
     res.json({ order: readableOrder(req) });
   });
 
-  // Invoice data for the screen and for the PDF (S3-26). It is built only from the
-  // purchase-time snapshot, so it never changes after the order is placed.
-  router.get("/:id/invoice", requireAuth, (req, res) => {
+  function readableInvoice(req) {
     const order = readableOrder(req);
     if (order.payment?.status !== "completed") throw new HttpError(404, "This order has no invoice.");
     const { email } = db.prepare("SELECT u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.id = ?").get(order.id);
-    res.json({
-      invoice: {
-        number: invoiceNumber(order.id),
-        orderId: order.id,
-        issuedAt: order.createdAt,
-        customer: { name: order.customerName, email },
-        deliveryAddress: order.deliveryAddress,
-        items: order.items,
-        totalCents: order.totalCents,
-        currency: order.currency,
-        payment: order.payment
-      }
-    });
+    return {
+      number: invoiceNumber(order.id),
+      orderId: order.id,
+      issuedAt: order.createdAt,
+      customer: { name: order.customerName, email },
+      deliveryAddress: order.deliveryAddress,
+      items: order.items,
+      totalCents: order.totalCents,
+      currency: order.currency,
+      payment: order.payment
+    };
+  }
+
+  router.get("/:id/invoice", requireAuth, (req, res) => {
+    res.json({ invoice: readableInvoice(req) });
+  });
+
+  router.get("/:id/invoice.pdf", requireAuth, async (req, res) => {
+    const invoice = readableInvoice(req);
+    const pdf = await renderInvoicePdf(invoice);
+    res.attachment(`${invoice.number}.pdf`).send(pdf);
   });
 
   return router;

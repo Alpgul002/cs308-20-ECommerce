@@ -61,7 +61,7 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 
 ## Important: not built yet
 
-Checkout, stock decrements, payment processing, invoice emails/PDF, ratings and review
+Checkout screens, invoice emails, ratings and review
 approval, wish lists, returns/refunds,
 sales/product manager dashboards, and live support chat are **not yet implemented**.
 The interface explicitly says checkout is unavailable; it does **not** simulate a successful order.
@@ -97,6 +97,7 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/orders` | Signed-in customer's order history |
 | GET | `/api/orders/:id` | One order (owner, product or sales manager) |
 | GET | `/api/orders/:id/invoice` | Invoice data for one paid order |
+| GET | `/api/orders/:id/invoice.pdf` | Download the PDF invoice for a paid order |
 
 Checkout and order details: [docs/S3_CHECKOUT_ORDERS_API.md](docs/S3_CHECKOUT_ORDERS_API.md).
 
