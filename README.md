@@ -7,6 +7,9 @@ are still pending. This is an integration baseline, not a completed progress dem
 
 [SCRUM-19 integration and ownership](docs/SCRUM-19_INTEGRATION.md)
 
+[SCRUM-20 implemented/proposed API contract](docs/SCRUM-20_API_CONTRACT.md)
+and [pending team decisions](docs/SCRUM-20_REVIEW_CHECKLIST.md).
+
 ```sh
 npm ci
 npm run dev
@@ -17,7 +20,7 @@ Node.js 24 önerilir. Mağaza: **http://localhost:5173/**.
 **Senin kapsamını ekranda göster:** http://localhost:5173/?scrum12=1
 **Demo rehberi:** http://localhost:5173/scrum12.html
 
-[SCRUM-12 kapsamı, dosyalar ve GitHub aktarımı](docs/SCRUM-12_TEAM_NOTES.md) · [Test sonuçları](docs/TEST_RESULTS.md)
+[SCRUM-12 geçmiş kapsamı](docs/SCRUM-12_TEAM_NOTES.md) · [Güncel entegrasyon testleri](docs/SCRUM-19_TEST_RESULTS.md) · [API sözleşmesi testleri](docs/SCRUM-20_TEST_RESULTS.md)
 
 Testler: `npm test`, `npm run build`, ardından `npx playwright install chromium` ve `npm run test:e2e`.
 

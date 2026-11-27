@@ -10,6 +10,15 @@ export async function fetchJson(url, options = {}) {
     if (!response.ok || data === null) {
       const error = new Error(data?.error || "The server is unavailable. Please try again.");
       error.status = response.status;
+      error.details = data;
+      // Checkout consumers need structured conflicts, not just the message.
+      // Copy the contract's fields explicitly so a payload cannot overwrite
+      // Error identity, stack, message or the real HTTP status.
+      if (data !== null && typeof data === "object") {
+        for (const key of ["code", "fields", "items", "totalCents", "replayed"]) {
+          if (Object.hasOwn(data, key)) error[key] = data[key];
+        }
+      }
       throw error;
     }
     return data;

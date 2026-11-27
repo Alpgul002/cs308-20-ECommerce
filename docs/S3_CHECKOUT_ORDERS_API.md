@@ -85,10 +85,17 @@ Kart numarası ve CVC hiçbir tabloya yazılmaz, yalnızca son dört hane saklan
 - `payments`: `card_last4`.
 - `checkout_attempts`: `(user_id, idempotency_key)` başına bir sonuç.
 
-**Not:** v5 bu dalda kullanıldı; bir sonraki migration v6 olmalı.
+**Birleşik dal notu (SCRUM-19):** v5 checkout için, v6 ise ürün puanları için kullanıldı.
+Bir sonraki migration v7 olmalı; veritabanı sorumlusuyla koordine edilmeli.
 
 ## Kapsam dışında kalanlar
 
 - **S3-23:** durum geçişleri (`processing` → `in-transit` → `delivered`) ve yönetici teslimat listesi. Şimdilik her sipariş `processing` kalır.
 - **S3-26 ve S3-27:** PDF fatura ve e-posta. Fatura verisi `/invoice` ucundan alınabilir.
-- **S3-28:** değerlendirme kuralı. SCRUM-14'teki kural yalnızca tamamlanmış ödemeye bakıyor, "teslim edildi" şartını henüz aramıyor.
+- **S3-28/S3-29 artık birleşik dalda var:** yorum/puan için tamamlanmış ödeme ve teslim edilmiş sipariş şartı API'de denetlenir. Yorum onayı, yıldız arayüzü ve teslimat durumunu değiştiren ekran/API hâlâ ayrı işlerdir.
+
+Fatura ad/adres/ürün/fiyat verileri sipariş anından gelir; müşteri e-postası şu anda
+güncel kullanıcı kaydından okunur. PDF dosyası ve e-posta gönderimi bu JSON ucunun parçası değildir.
+Güncel ortak arayüz sözleşmesi: [SCRUM-20_API_CONTRACT.md](SCRUM-20_API_CONTRACT.md).
+Bu belge ve checkout uygulaması özgün S3-20/S3-21/S3-22 katkısıdır; gerçek Jira
+SCRUM-20, ortak sözleşme/entegrasyon görevidir ve farklı bir plan maddesidir.
