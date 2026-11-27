@@ -56,6 +56,8 @@ test("reviews require a completed purchase of that product and payment history i
   db.prepare("UPDATE payments SET status = 'completed' WHERE order_id = ?").run(orderId);
   await other.post(path + "/reviews").send(review).expect(403);
   await buyer.post("/api/products/p-102/feedback/reviews").send(review).expect(403);
+  await buyer.post(path + "/reviews").send(review).expect(403);
+  db.prepare("UPDATE orders SET status = 'delivered' WHERE id = ?").run(orderId);
   await buyer.post(path + "/reviews").send(review).expect(201);
   await buyer.post(path + "/reviews").send(review).expect(409);
 

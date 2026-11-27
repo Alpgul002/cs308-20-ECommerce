@@ -252,7 +252,7 @@ test("migration 5 keeps SCRUM-14 orders and marks them processing", () => {
   `).run().lastInsertRowid;
   legacy.prepare("INSERT INTO orders (user_id) VALUES (?)").run(userId);
   runMigrations(legacy);
-  assert.equal(legacy.pragma("user_version", { simple: true }), 5);
+  assert.equal(legacy.pragma("user_version", { simple: true }), Math.max(...migrations.map((m) => m.version)));
   assert.equal(legacy.prepare("SELECT status FROM orders").get().status, "processing");
   legacy.close();
 });

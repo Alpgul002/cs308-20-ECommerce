@@ -1,3 +1,4 @@
+import { feedbackEligibility, ratingSummary } from "./feedback.js";
 import { Router } from "express";
 import { getProduct } from "./catalog.js";
 import { HttpError } from "./errors.js";
@@ -5,15 +6,6 @@ import { requireAuth } from "./middleware.js";
 
 export function createShopRouter(db) {
   const router = Router();
-
-  function canReview(productId, userId) {
-    return db.prepare(`
-      SELECT 1 FROM orders
-      JOIN order_items ON order_items.order_id = orders.id
-      WHERE orders.user_id = ? AND order_items.product_id = ?
-      AND EXISTS (SELECT 1 FROM payments WHERE order_id = orders.id AND status = 'completed')
-    `).get(userId, productId) !== undefined;
-  }
 
   router.use("/products/:id/feedback", (req, res, next) => {
     if (!getProduct(db, req.params.id)) throw new HttpError(404, "Product not found.");
@@ -37,7 +29,14 @@ export function createShopRouter(db) {
     `).all(userId, productId);
     const existing = db.prepare("SELECT 1 FROM reviews WHERE product_id = ? AND user_id = ?")
       .get(productId, userId);
-    res.json({ ...productLikes, reviews, canReview: Boolean(userId && !existing && canReview(productId, userId)) });
+    const eligibility = feedbackEligibility(db, productId, userId);
+    res.json({
+      ...productLikes, reviews, eligibility,
+      canReview: eligibility.eligible && !existing,
+      reviewReason: existing ? "already_reviewed" : eligibility.reason,
+      canRate: eligibility.eligible,
+      rating: ratingSummary(db, productId, userId)
+    });
   });
 
   router.post("/products/:id/feedback/reviews", requireAuth, (req, res) => {
@@ -46,7 +45,9 @@ export function createShopRouter(db) {
     const productId = req.params.id;
     const userId = req.user.id;
     db.transaction(() => {
-      if (!canReview(productId, userId)) throw new HttpError(403, "You can review products you have purchased.");
+      if (!feedbackEligibility(db, productId, userId).eligible) {
+        throw new HttpError(403, "You can review products after your paid order is delivered.");
+      }
       const result = db.prepare(`
         INSERT INTO reviews (product_id, user_id, body) VALUES (?, ?, ?)
         ON CONFLICT (product_id, user_id) DO NOTHING
@@ -54,6 +55,27 @@ export function createShopRouter(db) {
       if (!result.changes) throw new HttpError(409, "You have already reviewed this product.");
     }).immediate();
     res.status(201).json({ ok: true });
+  });
+
+  router.put("/products/:id/feedback/rating", requireAuth, (req, res) => {
+    const value = req.body?.value;
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      throw new HttpError(400, "Choose a whole number of stars from 1 to 5.");
+    }
+    const productId = req.params.id;
+    const userId = req.user.id;
+    const rating = db.transaction(() => {
+      if (!feedbackEligibility(db, productId, userId).eligible) {
+        throw new HttpError(403, "You can rate products after your paid order is delivered.");
+      }
+      db.prepare(`
+        INSERT INTO product_ratings (product_id, user_id, value) VALUES (?, ?, ?)
+        ON CONFLICT (product_id, user_id) DO UPDATE SET
+          value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      `).run(productId, userId, value);
+      return ratingSummary(db, productId, userId);
+    }).immediate();
+    res.json({ rating });
   });
 
   router.put("/products/:id/feedback/like", requireAuth, (req, res) => {

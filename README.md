@@ -123,3 +123,28 @@ Meaningful commit history, bug reports, sprint backlog items, and unit tests mat
 for course grading. Each team member should be able to explain the code they contributed.
 
 *The source document permits AI assistance but requires students to understand and verify it.*
+
+## S3-28 and S3-29 feedback contract
+
+Migration 6 adds product ratings while preserving existing reviews. Feedback requires an
+order belonging to the signed-in user that contains the product, has status
+`delivered`, and has a completed payment for that same order. Existing reviews stay
+readable. New comments and every rating update use the shared eligibility rule.
+
+`GET /api/products/:id/feedback` includes:
+
+- `eligibility: { eligible, reason }`, where reason is `sign_in_required`,
+  `purchase_required`, `delivery_required`, or null.
+- `canReview` and `reviewReason` (also `already_reviewed` for an existing comment).
+- `canRate` and `rating: { average, count, myRating }`. An unrated product returns
+  `{ average: null, count: 0, myRating: null }`.
+
+`PUT /api/products/:id/feedback/rating` accepts `{ "value": 4 }` and returns
+`{ rating: { average, count, myRating } }`. Values must be integers from 1 to 5.
+One row per user/product is inserted or updated, so retries and edits preserve the count.
+Public averages include ratings immediately, independently of comments and likes.
+
+Product feedback displays the API's eligibility reason. Star forms and summary displays
+remain integration points for S3-05 and S3-09. Live delivery verification depends on
+S3-23; tests set order states in isolated databases. Migration 6 must be coordinated with
+the S3-31 schema owner before integration with other new migrations.
