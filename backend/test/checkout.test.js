@@ -195,6 +195,20 @@ test("the last unit can be sold only once, and stock never goes negative", () =>
   assert.equal(count("orders"), 1);
 });
 
+test("stock taken by someone else during payment is caught by the guarded write", () => {
+  const userId = addCustomer();
+  fillCart(userId, [["p-101", 2]]);
+  // Stands in for another writer changing stock between the check and the write.
+  const charge = () => {
+    db.prepare("UPDATE products SET stock = 1 WHERE id = 'p-101'").run();
+    return { approved: true, cardLast4: "4242" };
+  };
+  assert.throws(() => checkout(userId, charge),
+    (error) => error.status === 409 && error.details.code === "stock_changed");
+  assert.equal(stockOf("p-101"), 17); // The whole transaction, including that change, rolled back.
+  nothingWritten(userId, 1);
+});
+
 test("a failure in the middle of writing the order rolls everything back", () => {
   const userId = addCustomer();
   fillCart(userId, [["p-101", 2]]);
