@@ -93,10 +93,16 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/auth/me` | Current user, 401 when signed out |
 | POST | `/api/products` | Add a product (product manager) |
 | DELETE | `/api/products/:id` | Remove a product (product manager) |
+| POST | `/api/checkout` | Pay for the account cart with the mock bank (customer, `Idempotency-Key` header) |
+| GET | `/api/orders` | Signed-in customer's order history |
+| GET | `/api/orders/:id` | One order (owner, product or sales manager) |
+| GET | `/api/orders/:id/invoice` | Invoice data for one paid order |
 
-Migration 4 adds `orders`, `order_items` and `payments`. The future checkout flow will
-populate these tables. Preserve product names and unit prices in `order_items` for history,
-and record a completed payment when the order has been paid. The history screen shows an
+Checkout and order details: [docs/S3_CHECKOUT_ORDERS_API.md](docs/S3_CHECKOUT_ORDERS_API.md).
+
+Migration 4 adds `orders`, `order_items` and `payments`, and checkout (migration 5) now
+fills them. Product names and unit prices are kept in `order_items` for history, and a
+completed payment is recorded when the order has been paid. The history screen shows an
 empty state until the signed-in account has payment records.
 
 Query sorts: `popular`, `price-asc`, `price-desc`, and `name`.
