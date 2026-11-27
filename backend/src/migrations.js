@@ -1,4 +1,5 @@
 import { seedCatalog } from "./seed.js";
+import { addCheckoutColumns } from "./orderSchema.js";
 import { createShopTables } from "./shopSchema.js";
 
 
@@ -82,7 +83,8 @@ export const migrations = [
       `);
     }
   },
-  { version: 4, name: "carts-purchases-and-reviews", up: createShopTables }
+  { version: 4, name: "carts-purchases-and-reviews", up: createShopTables },
+  { version: 5, name: "checkout-orders-and-idempotency", up: addCheckoutColumns }
 ];
 
 export function runMigrations(db, list = migrations) {

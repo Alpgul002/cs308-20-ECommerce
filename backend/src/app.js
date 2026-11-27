@@ -76,7 +76,9 @@ export function createApp(db, options = {}) {
   app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) {
-      return res.status(err.status).json({ error: err.message, ...(err.fields && { fields: err.fields }) });
+      return res.status(err.status).json({
+        error: err.message, ...(err.fields && { fields: err.fields }), ...err.details
+      });
     }
     if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Malformed JSON" });
     // Body-parser rejections (too large, bad charset...) are client errors, not crashes.
