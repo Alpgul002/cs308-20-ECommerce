@@ -1,4 +1,8 @@
+import { addProductRatings } from "./feedback.js";
 import { seedCatalog } from "./seed.js";
+import { addCheckoutColumns } from "./orderSchema.js";
+import { createShopTables } from "./shopSchema.js";
+
 
 // Schema history, tracked with SQLite's PRAGMA user_version.
 // Rules: never edit a migration that is already merged. To change the schema,
@@ -79,7 +83,10 @@ export const migrations = [
         CREATE UNIQUE INDEX idx_products_serial_active ON products(serial_number) WHERE deleted_at IS NULL;
       `);
     }
-  }
+  },
+  { version: 4, name: "carts-purchases-and-reviews", up: createShopTables },
+  { version: 5, name: "checkout-orders-and-idempotency", up: addCheckoutColumns },
+  { version: 6, name: "product-ratings", up: addProductRatings }
 ];
 
 export function runMigrations(db, list = migrations) {

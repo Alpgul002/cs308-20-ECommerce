@@ -4,6 +4,11 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { DEFAULT_BCRYPT_ROUNDS } from "./auth.js";
 import { createAuthRouter } from "./authRoutes.js";
+import { createMockBank } from "./bank.js";
+import { createCheckoutRouter } from "./checkoutRoutes.js";
+import { createOrderRouter } from "./orderRoutes.js";
+import { createCartRouter } from "./cartRoutes.js";
+import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
 import { loadSession, rejectForeignOrigins } from "./middleware.js";
 import { createProductAdminRouter } from "./productAdminRoutes.js";
@@ -22,7 +27,8 @@ export function createApp(db, options = {}) {
     cookieSecure = process.env.NODE_ENV === "production",
     bcryptRounds = DEFAULT_BCRYPT_ROUNDS,
     loginLimit = 10,
-    registerLimit = 30
+    registerLimit = 30,
+    bank = createMockBank()
   } = options;
 
   const app = express();
@@ -59,6 +65,10 @@ export function createApp(db, options = {}) {
   });
 
   app.use("/api/products", createProductAdminRouter(db));
+  app.use("/api/cart", createCartRouter(db, cookieSecure));
+  app.use("/api/checkout", createCheckoutRouter(db, bank));
+  app.use("/api/orders", createOrderRouter(db));
+  app.use("/api", createShopRouter(db));
 
   app.post("/api/cart/validate", (req, res) => {
     if (!isValidCartInput(req.body?.items)) {
@@ -70,7 +80,9 @@ export function createApp(db, options = {}) {
   app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) {
-      return res.status(err.status).json({ error: err.message, ...(err.fields && { fields: err.fields }) });
+      return res.status(err.status).json({
+        error: err.message, ...(err.fields && { fields: err.fields }), ...err.details
+      });
     }
     if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Malformed JSON" });
     // Body-parser rejections (too large, bad charset...) are client errors, not crashes.

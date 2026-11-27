@@ -1,6 +1,11 @@
-# SCRUM-12 — Çalışan entegrasyon teslimi
+# Sprint 3 — Shared integration baseline
 
-Ana sayfa, filtreler ve ürün detayı SQLite/API ile bağlıdır. Doğrulanmış ortak temel `feature/scrum15` (`ee94b1d`) kullanılır; önceki takım çalışmaları korunur. SCRUM-14 sepet/yorum/ödeme özellikleri bu teslimin bağımlılığı değildir.
+This branch combines SCRUM-12's connected catalog with the team's server cart,
+checkout/order API, cart merge corrections and delivered-purchase rating API.
+The checkout form, order-status management, comment moderation and PDF/email delivery
+are still pending. This is an integration baseline, not a completed progress demo.
+
+[SCRUM-19 integration and ownership](docs/SCRUM-19_INTEGRATION.md)
 
 ```sh
 npm ci
@@ -34,14 +39,9 @@ This is an *initial increment*, not the completed assignment.
 
 ## Local setup
 
-Install **Node.js 22 LTS or later** and npm, then clone the repository.
+Install **Node.js 22 LTS or later** and npm. Run these commands from the project folder.
 
 ```bash
-git clone https://github.com/Alpgul002/cs308-20-ECommerce.git
-cd cs308-20-ECommerce
-# When the feature branch is not yet merged:
-git switch feature/sprint-1-store-foundation
-
 npm install
 npm run dev
 ```
@@ -69,14 +69,19 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 | `npm run dev --workspace @cs308/frontend` | Run only React |
 | `npm run dev --workspace @cs308/backend` | Run only API |
 
-## Functional in Sprint 1 starter
+## Implemented in the integrated baseline
 
 - Browse products and categories from the database.
 - Search product **names and descriptions**; sort by popularity, name, or price.
 - See stock quantities and keep sold-out products searchable but not addable.
 - View product detail with **ID, name, model, serial number, description,
   quantity in stock, price, warranty status, distributor**.
-- Add/change/remove items in a **guest cart** persisted to browser `localStorage`.
+- Add, change or remove cart items while signed out. SQLite stores the cart, and an
+  HttpOnly cookie identifies it. Sign-in merges the guest cart into the account cart.
+- Like products and reviews after signing in. A paid, delivered purchase permits one review per product.
+- Create orders through the checkout API, with atomic stock changes and idempotent mock payment.
+- Read order history and invoice JSON through authorized APIs; submit 1-5 ratings for delivered purchases.
+- View your payment records and purchased items under My profile.
 - Check cart price and current inventory using the backend (no stock reservation).
 - Responsive frontend, working API, separate tests and documented architecture.
 - Backend for registration, login, logout and role checks with hashed passwords and server-side sessions.
@@ -84,10 +89,11 @@ See [SCRUM-13 team notes](docs/SCRUM-13_TEAM_NOTES.md).
 
 ## Important: not built yet
 
-Connecting the login page to the API, orders, stock-decrement transaction,
-mock banking, invoice emails/PDF, ratings/comments and approval, wish lists, returns/refunds,
+The checkout, order-history and star-rating screens, delivery status updates,
+invoice emails/PDF, review approval, wish lists, returns/refunds,
 sales/product manager dashboards, and live support chat are **not yet implemented**.
-The interface explicitly says checkout is unavailable; it does **not** simulate a successful order.
+The interface explicitly says checkout is unavailable; the backend API is implemented
+but has not yet been connected to a checkout screen.
 Implement and test these against the requirement list before the progress/final demos.
 
 The progress demo specifically expects features **1, 3, 4, 5, 7, 9**.
@@ -102,6 +108,13 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/categories` | Categories with product counts |
 | GET | `/api/products?search=&category=&sort=` | Catalog search/filter/sort |
 | GET | `/api/products/:id` | Full product detail |
+| GET | `/api/cart` | Current guest or account cart |
+| PUT / DELETE | `/api/cart/items/:productId` | Set quantity or remove a cart item |
+| GET | `/api/products/:id/feedback` | Product likes, reviews and review eligibility |
+| POST | `/api/products/:id/feedback/reviews` | Post a review after a paid, delivered purchase; moderation still pending |
+| PUT | `/api/products/:id/feedback/like` | Set product like status |
+| PUT | `/api/products/:id/feedback/reviews/:reviewId/like` | Set review like status |
+| GET | `/api/account/payments` | Signed-in account payment history |
 | POST | `/api/cart/validate` | Validate guest cart stock/price; **not checkout** |
 | POST | `/api/auth/register` | Create a customer account and sign in |
 | POST | `/api/auth/login` | Sign in |
@@ -109,6 +122,22 @@ See [Architecture](docs/ARCHITECTURE.md), [Sprint Backlog](docs/SPRINT_BACKLOG.m
 | GET | `/api/auth/me` | Current user, 401 when signed out |
 | POST | `/api/products` | Add a product (product manager) |
 | DELETE | `/api/products/:id` | Remove a product (product manager) |
+| POST | `/api/checkout` | Pay for the account cart with the mock bank (customer, `Idempotency-Key` header) |
+| GET | `/api/orders` | Signed-in customer's order history |
+| GET | `/api/orders/:id` | One order (owner, product or sales manager) |
+| GET | `/api/orders/:id/invoice` | Invoice data for one paid order |
+
+Checkout and order details: [docs/S3_CHECKOUT_ORDERS_API.md](docs/S3_CHECKOUT_ORDERS_API.md).
+
+Successful login and registration return `cartAdjustments` alongside `user`. If a guest
+cart was merged, each adjusted line includes `productId`, `name`, `requestedQuantity`,
+`quantity` (zero when removed), and a `reason`: `stock`, `removed`, `item_limit`, or
+`bag_limit`. The storefront shows these changes after sign-in.
+
+Migration 4 adds `orders`, `order_items` and `payments`, and checkout (migration 5) now
+fills them. Product names and unit prices are kept in `order_items` for history, and a
+completed payment is recorded when the order has been paid. The history screen shows an
+empty state until the signed-in account has payment records.
 
 Query sorts: `popular`, `price-asc`, `price-desc`, and `name`.
 
@@ -128,3 +157,28 @@ Meaningful commit history, bug reports, sprint backlog items, and unit tests mat
 for course grading. Each team member should be able to explain the code they contributed.
 
 *The source document permits AI assistance but requires students to understand and verify it.*
+
+## S3-28 and S3-29 feedback contract
+
+Migration 6 adds product ratings while preserving existing reviews. Feedback requires an
+order belonging to the signed-in user that contains the product, has status
+`delivered`, and has a completed payment for that same order. Existing reviews stay
+readable. New comments and every rating update use the shared eligibility rule.
+
+`GET /api/products/:id/feedback` includes:
+
+- `eligibility: { eligible, reason }`, where reason is `sign_in_required`,
+  `purchase_required`, `delivery_required`, or null.
+- `canReview` and `reviewReason` (also `already_reviewed` for an existing comment).
+- `canRate` and `rating: { average, count, myRating }`. An unrated product returns
+  `{ average: null, count: 0, myRating: null }`.
+
+`PUT /api/products/:id/feedback/rating` accepts `{ "value": 4 }` and returns
+`{ rating: { average, count, myRating } }`. Values must be integers from 1 to 5.
+One row per user/product is inserted or updated, so retries and edits preserve the count.
+Public averages include ratings immediately, independently of comments and likes.
+
+Product feedback displays the API's eligibility reason. Star forms and summary displays
+remain integration points for S3-05 and S3-09. Live delivery verification depends on
+S3-23; tests set order states in isolated databases. Migration 6 must be coordinated with
+the S3-31 schema owner before integration with other new migrations.

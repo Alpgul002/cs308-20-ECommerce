@@ -5,9 +5,10 @@ import {
     ShoppingBag
   } from "lucide-react";
   import ProductArt from "./ProductArt.jsx";
+  import ProductFeedback from "./ProductFeedback.jsx";
   import { formatPrice } from "./cart.js";
   
-  export default function ProductDetailsPage({ product, onBack, onAdd, onRefresh }) {
+  export default function ProductDetailsPage({ product, user, onBack, onAdd, onRefresh, onSignIn, cartBusy }) {
     const soldOut = product.stock === 0;
   
     return (
@@ -72,7 +73,7 @@ import {
               <button
                 type="button"
                 className="primary-button wide"
-                disabled={soldOut}
+                disabled={soldOut || cartBusy}
                 onClick={() => onAdd(product)}
               >
                 {soldOut ? (
@@ -86,6 +87,7 @@ import {
               </button>
             </div>
           </section>
+          <ProductFeedback key={product.id} productId={product.id} user={user} onSignIn={onSignIn} />
         </div>
       </main>
     );

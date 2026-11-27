@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PaymentHistory from "./PaymentHistory.jsx";
 import { ArrowLeft, LogOut, Mail, MapPin, UserRound } from "lucide-react";
 
 export default function ProfilePage({ user, onBack, onLogout }) {
@@ -56,6 +57,7 @@ export default function ProfilePage({ user, onBack, onLogout }) {
             </div>
           </div>
         </section>
+        <PaymentHistory />
       </div>
     </main>
   );
