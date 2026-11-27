@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { fetchJson, sendJson } from "./api.js";
 
+const ELIGIBILITY_MESSAGES = {
+  sign_in_required: "Sign in to review or rate products you have received.",
+  purchase_required: "Reviews and ratings are available after a paid purchase is delivered.",
+  delivery_required: "You can review and rate this product once your order is delivered.",
+  already_reviewed: "You have already reviewed this product."
+};
+
 function LikeButton({ liked, likes, disabled, label, onClick }) {
   return (
     <button type="button" className="text-action" disabled={disabled}
@@ -19,6 +26,8 @@ export default function ProductFeedback({ productId, user, onSignIn }) {
 
   useEffect(() => {
     let active = true;
+    setFeedback(null);
+    setError("");
     fetchJson(url)
       .then((data) => { if (active) setFeedback(data); })
       .catch((err) => { if (active) setError(err.message); });
@@ -73,7 +82,7 @@ export default function ProductFeedback({ productId, user, onSignIn }) {
             </button>
           </form>
         )}
-        {!feedback.canReview && <p>Customers can post one review per purchased product.</p>}
+        {!feedback.canReview && <p>{ELIGIBILITY_MESSAGES[feedback.reviewReason]}</p>}
       </>}
     </section>
   );
