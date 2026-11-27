@@ -9,6 +9,7 @@ import ProductArt from "./ProductArt.jsx";
 import ProductDetailsPage from "./ProductDetailsPage.jsx";
 import LoginPage from "./LoginPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
+import CheckoutPage from "./CheckoutPage.jsx";
 import { fetchJson, sendJson } from "./api.js";
 import {
   STORAGE_KEY, addItem, countItems, formatPrice, normalizeCart,
@@ -111,8 +112,8 @@ function ProductDialog({ product, onClose, onAdd }) {
 }
 
 function CartDrawer({
-  cart, productsById, quote, checking, cartBusy,
-  onClose, onReview, onQuantity, onRemove, onDetails
+  cart, productsById, quote, checking, cartBusy, cartNotice,
+  onClose, onReview, onCheckout, onQuantity, onRemove, onDetails
 }) {
   return (
     <div className="overlay drawer-overlay" onMouseDown={(event) => {
@@ -126,6 +127,7 @@ function CartDrawer({
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close shopping bag"><X size={22} /></button>
         </div>
+        {cartNotice && <p className="cart-adjustment bag-adjustment" role="status">{cartNotice}</p>}
         {cart.length === 0 ? (
           <div className="empty-bag">
             <ShoppingBag size={44} strokeWidth={1.2} />
@@ -181,18 +183,20 @@ function CartDrawer({
             </div>
             <div className="bag-bottom">
               <div className="subtotal-line"><span>Subtotal</span><strong>{formatPrice(quote?.subtotalCents ?? subtotalCents(cart, productsById))}</strong></div>
-              <p className="bag-note">Shipping and payment will be added in a later sprint.</p>
+              <p className="bag-note">Review your delivery details before payment.</p>
               {quote && (
                 <p role="status" className={`quote-status ${quote.valid ? "quote-status--ok" : "quote-status--warn"}`}>
                   {quote.valid
-                    ? "Stock verified by the backend. Checkout is not implemented yet."
+                    ? "Stock and subtotal checked."
                     : "Some items are unavailable. Please adjust your bag."}
                 </p>
               )}
-              <button className="primary-button wide" onClick={onReview} disabled={checking || cartBusy}>
+              <button className="outline-button wide" onClick={onReview} disabled={checking || cartBusy}>
                 {checking ? "Checking availability..." : "Check stock & subtotal"} <ArrowRight size={18} />
               </button>
-              <p className="checkout-notice">Guest browsing only · Orders and payments are not active yet</p>
+              <button className="primary-button wide" onClick={onCheckout} disabled={cartBusy}>
+                Checkout <ArrowRight size={18} />
+              </button>
             </div>
           </>
         )}
@@ -215,6 +219,9 @@ export default function App() {
   const [details, setDetails] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutDraft, setCheckoutDraft] = useState(null);
+  const [cartNotice, setCartNotice] = useState("");
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
@@ -222,6 +229,7 @@ export default function App() {
   const cartRevision = useRef(0);
   const cartStartup = useRef(null);
   const cartRequest = useRef(false);
+  const resumeCheckout = useRef(false);
   const [cartBusy, setCartBusy] = useState(true);
 
   function invalidateQuote() {
@@ -330,8 +338,10 @@ export default function App() {
     try {
       const { items } = await fetchJson("/api/cart");
       setCart(items);
+      return items;
     } catch (error) {
       setToast(error.message);
+      return null;
     } finally {
       setCartBusy(false);
     }
@@ -340,6 +350,8 @@ export default function App() {
   async function handleLogout() {
     await fetchJson("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
+    setCheckoutDraft(null);
+    setCartNotice("");
     await refreshCart();
     setProfileOpen(false);
     setToast("You have signed out.");
@@ -370,11 +382,33 @@ export default function App() {
     }
   }
 
+  function beginCheckout() {
+    if (!cart.length || cartBusy) return;
+    if (user && user.role !== "customer") {
+      setToast("Sign in with a customer account to check out.");
+      return;
+    }
+
+    setCartOpen(false);
+
+    if (!user) {
+      resumeCheckout.current = true;
+      setLoginOpen(true);
+      return;
+    }
+
+    setCheckoutOpen(true);
+  }
+
   const featured = products.find((product) => product.id === "p-101") || { imageKey: "headphones", accent: "violet", name: "Studio Headphones", priceCents: 12999 };
   if (loginOpen) {
     return (
       <LoginPage
-        onBack={() => setLoginOpen(false)}
+        onBack={() => {
+          if (resumeCheckout.current) setCartOpen(true);
+          resumeCheckout.current = false;
+          setLoginOpen(false);
+        }}
         onSubmit={async ({ email, password }) => {
           const { user: signedInUser } = await fetchJson("/api/auth/login", {
             method: "POST",
@@ -383,9 +417,60 @@ export default function App() {
             body: JSON.stringify({ email, password })
           });
           setUser(signedInUser);
-          await refreshCart();
+          const accountCart = await refreshCart();
           setLoginOpen(false);
-          setToast(`Welcome back, ${signedInUser.name}.`);
+
+          const shouldResume = resumeCheckout.current;
+          resumeCheckout.current = false;
+          if (!accountCart) {
+            if (shouldResume) setCartOpen(true);
+            return;
+          }
+
+          const quantities = new Map(accountCart.map(({ productId, quantity }) => [productId, quantity]));
+          const adjustments = cart.flatMap(({ productId, quantity }) => {
+            const current = quantities.get(productId) ?? 0;
+            if (current >= quantity) return [];
+            const name = productsById[productId]?.name ?? productId;
+            return [current ? `${name} reduced from ${quantity} to ${current}` : `${name} removed`];
+          });
+          const notice = adjustments.length
+            ? `Your bag changed during sign-in. ${adjustments.join(". ")}. Review your bag before continuing.`
+            : "";
+          setCartNotice(notice);
+
+          if (shouldResume && signedInUser.role === "customer") {
+            setCheckoutOpen(true);
+          } else if (shouldResume) {
+            setCartOpen(true);
+            setToast("Sign in with a customer account to check out.");
+          } else {
+            setToast(notice || `Welcome back, ${signedInUser.name}.`);
+          }
+        }}
+      />
+    );
+  }
+  if (checkoutOpen && user) {
+    return (
+      <CheckoutPage
+        user={user}
+        cart={cart}
+        productsById={productsById}
+        cartNotice={cartNotice}
+        initialAddress={checkoutDraft?.deliveryAddress ?? user.homeAddress ?? ""}
+        onBack={(deliveryAddress) => {
+          setCheckoutDraft({ deliveryAddress });
+          setCheckoutOpen(false);
+          setCartOpen(true);
+        }}
+        onContinue={(draft) => {
+          setCheckoutDraft(draft);
+          setCartNotice("");
+          setCheckoutOpen(false);
+          setToast(
+            "Delivery information saved. Payment will continue in SCRUM-17."
+          );
         }}
       />
     );
@@ -550,6 +635,8 @@ export default function App() {
       cartBusy={cartBusy}
       onClose={() => setCartOpen(false)}
       onReview={reviewCart}
+      onCheckout={beginCheckout}
+      cartNotice={cartNotice}
       onQuantity={handleQuantity}
       onRemove={handleRemove}
       onDetails={(product) => {

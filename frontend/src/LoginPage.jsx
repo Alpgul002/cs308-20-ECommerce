@@ -54,7 +54,7 @@ export default function LoginPage({ onBack, onSubmit }) {
   return (
     <main className="login-page">
       <div className="page-container">
-        <button type="button" className="login-back" onClick={onBack}>
+        <button type="button" className="login-back" onClick={onBack} disabled={submitting}>
           <ArrowLeft size={18} />
           Back to store
         </button>
@@ -65,8 +65,7 @@ export default function LoginPage({ onBack, onSubmit }) {
             <p className="eyebrow">WELCOME BACK</p>
             <h1>Continue your Orbit journey.</h1>
             <p>
-              Sign in before placing an order. Products already in your bag
-              will remain there after login.
+              Sign in to review your bag and delivery details before placing an order.
             </p>
 
             <div className="login-security">
@@ -140,9 +139,6 @@ export default function LoginPage({ onBack, onSubmit }) {
               </button>
             </form>
 
-            <p className="login-note">
-                Your shopping bag remains available while you sign in.
-            </p>
           </div>
         </section>
       </div>
