@@ -20,6 +20,12 @@ function withDetails(db, row) {
   return { ...order, currency: "USD", items, payment: payment && { ...payment } };
 }
 
+// Newest first. The customer's own history (PDF item 3).
+export function listOrdersForUser(db, userId) {
+  return db.prepare(`SELECT ${ORDER_COLUMNS} FROM orders o WHERE o.user_id = ? ORDER BY o.created_at DESC, o.id DESC`)
+    .all(userId).map((row) => withDetails(db, row));
+}
+
 export function getOrder(db, id) {
   const row = db.prepare(`SELECT ${ORDER_COLUMNS} FROM orders o WHERE o.id = ?`).get(id);
   return row ? { userId: row.userId, order: withDetails(db, row) } : null;

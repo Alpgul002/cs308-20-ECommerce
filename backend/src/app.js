@@ -6,6 +6,7 @@ import { DEFAULT_BCRYPT_ROUNDS } from "./auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createMockBank } from "./bank.js";
 import { createCheckoutRouter } from "./checkoutRoutes.js";
+import { createOrderRouter } from "./orderRoutes.js";
 import { createCartRouter } from "./cartRoutes.js";
 import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
@@ -68,6 +69,7 @@ export function createApp(db, options = {}) {
   app.use("/api/products", createProductAdminRouter(db));
   app.use("/api/cart", createCartRouter(db, cookieSecure));
   app.use("/api/checkout", createCheckoutRouter(db, bank));
+  app.use("/api/orders", createOrderRouter(db));
   app.use("/api", createShopRouter(db));
 
   app.post("/api/cart/validate", (req, res) => {
