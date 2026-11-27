@@ -8,16 +8,17 @@ import {
   import ProductFeedback from "./ProductFeedback.jsx";
   import { formatPrice } from "./cart.js";
   
-  export default function ProductDetailsPage({ product, user, onBack, onAdd, onSignIn, cartBusy }) {
+  export default function ProductDetailsPage({ product, user, onBack, onAdd, onRefresh, onSignIn, cartBusy }) {
     const soldOut = product.stock === 0;
   
     return (
       <main className="product-page">
         <div className="page-container">
-          <button type="button" className="product-page-back" onClick={onBack}>
+          <div className="product-page-toolbar"><button type="button" className="product-page-back" onClick={onBack}>
             <ArrowLeft size={18} />
             Back to products
           </button>
+          <button type="button" className="outline-button" onClick={onRefresh}>Refresh product</button></div>
   
           <section className="product-page-card">
             <ProductArt product={product} variant="detail" />

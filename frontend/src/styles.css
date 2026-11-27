@@ -11,6 +11,17 @@
   --border: #e9e8f0;
   --page-width: 1200px;
 }
+.scrum12-scope { margin: 20px auto; max-width: 1144px; border: 1px solid #ad96ef; border-left: 5px solid #7651d8; border-radius: 12px; background: #f1ecff; padding: 16px 20px; color: #392566; font-size: 13px; line-height: 1.6; }
+.scrum12-scope p { margin: 5px 0; }
+.scrum12-scope a { text-decoration: underline; font-weight: 650; }
+.advanced-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 18px 0 4px; color: #626174; font-size: 12px; }
+.advanced-filters label { display: flex; align-items: center; gap: 8px; }
+.advanced-filters input[type=number] { border: 1px solid #ddd8eb; border-radius: 8px; background: white; width: 110px; padding: 10px; color: #222134; }
+.advanced-filters input[type=checkbox] { width: 17px; height: 17px; accent-color: #674be3; }
+.detail-actions { display: flex; justify-content: center; gap: 12px; }
+.product-page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 auto 24px; max-width: 1000px; }
+.product-page-toolbar .product-page-back { margin-bottom: 0; }
+.hero-product-label.featured-link { color: white; text-align: left; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; }

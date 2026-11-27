@@ -65,8 +65,8 @@ export default function LoginPage({ onBack, onSubmit }) {
             <p className="eyebrow">WELCOME BACK</p>
             <h1>Continue your Orbit journey.</h1>
             <p>
-              Sign in before placing an order. Products already in your bag
-              will remain there after login.
+              Sign in before placing an order. We'll combine your guest bag with your account bag
+              and show you any changes.
             </p>
 
             <div className="login-security">

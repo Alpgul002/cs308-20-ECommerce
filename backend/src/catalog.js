@@ -29,7 +29,7 @@ export function getCategories(db) {
 }
 
 // SQL values are bound parameters. Sorting is a fixed allowlist, never user SQL.
-export function getProducts(db, { search = "", category = "all", sort = "popular" } = {}) {
+export function getProducts(db, { search = "", category = "all", sort = "popular", minPriceCents, maxPriceCents, inStock = false } = {}) {
   if (!Object.hasOwn(SORT_OPTIONS, sort)) throw new RangeError("Invalid sort option");
   const where = ["p.deleted_at IS NULL"];
   const params = [];
@@ -43,7 +43,10 @@ export function getProducts(db, { search = "", category = "all", sort = "popular
     where.push("(p.name LIKE ? ESCAPE '!' OR p.description LIKE ? ESCAPE '!')");
     params.push(pattern, pattern);
   }
-  // No LIMIT: the storefront filters this list client-side, so a cut-off would hide products.
+  if (minPriceCents !== undefined) { where.push("p.price_cents >= ?"); params.push(minPriceCents); }
+  if (maxPriceCents !== undefined) { where.push("p.price_cents <= ?"); params.push(maxPriceCents); }
+  if (inStock) where.push("p.stock > 0");
+  // Return the entire matching set; filtering and sorting happen in SQLite.
   return db.prepare(`${selectProducts} WHERE ${where.join(" AND ")} ORDER BY ${SORT_OPTIONS[sort]}`).all(...params);
 }
 

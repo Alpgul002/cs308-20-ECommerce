@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight,
   Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag,
   SlidersHorizontal, Sparkles, Trash2, Truck, UserRound, X
 } from "lucide-react";
-import { filterProducts } from "./catalog.js";
+import { DEFAULT_FILTERS, productQuery, useRemote, useStoreLocation } from "./storefront.js";
 import ProductArt from "./ProductArt.jsx";
-import ProductDetailsPage from "./ProductDetailsPage.jsx";
+import ConnectedProductPage from "./ConnectedProductPage.jsx";
+import Scrum12Scope from "./Scrum12Scope.jsx";
 import LoginPage from "./LoginPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import { fetchJson, sendJson } from "./api.js";
@@ -33,6 +34,37 @@ async function loadInitialAccount() {
   const imported = await sendJson("/api/cart/import", "POST", { items });
   try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be blocked. */ }
   return { user, ...imported };
+}
+
+const CART_ADJUSTMENT_REASONS = {
+  removed: "Product no longer sold",
+  stock: "Stock changed",
+  item_limit: "Limit of 20 per product",
+  bag_limit: "Limit of 40 different products"
+};
+
+function CartMergeNotice({ adjustments, onDismiss }) {
+  if (adjustments.length === 0) return null;
+  return (
+    <div className="page-container">
+      <div className="shop-panel">
+        <div role="status">
+          <h2>Your bag changed when you signed in</h2>
+          <ul>
+            {adjustments.map(({ productId, name, requestedQuantity, quantity, reason }) => (
+              <li key={productId}>
+                <strong>{name}</strong> · {quantity === 0
+                  ? `Removed (${requestedQuantity})`
+                  : `Reduced from ${requestedQuantity} to ${quantity}`}
+                {" · "}{CART_ADJUSTMENT_REASONS[reason]}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button className="text-action" type="button" onClick={onDismiss}>Dismiss bag changes</button>
+      </div>
+    </div>
+  );
 }
 
 function SectionTitle({ eyebrow, title, children }) {
@@ -71,42 +103,6 @@ function ProductCard({ product, onAdd, onDetails, cartBusy }) {
         </div>
       </div>
     </article>
-  );
-}
-
-function ProductDialog({ product, onClose, onAdd }) {
-  return (
-    <div className="overlay" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="product-dialog-title"
-        className="product-dialog">
-        <button className="icon-button dialog-close" onClick={onClose} aria-label="Close product details">
-          <X size={20} />
-        </button>
-        <ProductArt product={product} variant="detail" />
-        <div className="detail-content">
-          <p className="eyebrow">{product.brand} / {product.categoryName}</p>
-          <h2 id="product-dialog-title">{product.name}</h2>
-          <p className="detail-price">{formatPrice(product.priceCents)}</p>
-          <p className="detail-description">{product.description}</p>
-          <div className="detail-stock">
-            {product.stock > 0 ? <CheckCircle2 size={17} /> : <AlertTriangle size={17} />}
-            {product.stock > 0 ? `${product.stock} pieces available` : "Currently out of stock"}
-          </div>
-          <dl className="spec-grid">
-            <div><dt>Model</dt><dd>{product.model}</dd></div>
-            <div><dt>Serial number</dt><dd>{product.serialNumber}</dd></div>
-            <div><dt>Warranty</dt><dd>{product.warrantyStatus} · {product.warrantyMonths} months</dd></div>
-            <div><dt>Distributor</dt><dd>{product.distributor}</dd></div>
-          </dl>
-          <button className="primary-button wide" disabled={product.stock === 0}
-            onClick={() => onAdd(product)}>
-            {product.stock === 0 ? "Out of stock" : <><ShoppingBag size={19} /> Add to bag <ArrowRight size={18} /></>}
-          </button>
-        </div>
-      </section>
-    </div>
   );
 }
 
@@ -207,15 +203,25 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [sort, setSort] = useState("popular");
+  const { filters, setFilters, productId: details, openProduct } = useStoreLocation();
+  const { search, category, sort, minPrice, maxPrice, inStock } = filters;
+  const setSearch = (value) => setFilters({ search: value });
+  const setCategory = (value) => setFilters({ category: value });
+  const setSort = (value) => setFilters({ sort: value });
+  const setDetails = (product) => openProduct(product?.id ?? null);
+  const catalogResult = useRemote(details ? null : `/api/products?${productQuery(filters)}`, retry, 250);
+  const visibleProducts = catalogResult.data?.products ?? [];
+  const totalProducts = categories.reduce((sum, group) => sum + group.productCount, 0);
+  const catalogLoading = loading || catalogResult.loading;
+  const catalogError = loadError || catalogResult.error?.message;
+  const rememberProduct = useCallback((product) => setProducts((current) =>
+    [...current.filter((item) => item.id !== product.id), product]), []);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [details, setDetails] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [cartAdjustments, setCartAdjustments] = useState([]);
   const [toast, setToast] = useState("");
   const [quote, setQuote] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -230,8 +236,11 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (details) return;
     let active = true;
-    Promise.all([fetchJson("/api/products"), fetchJson("/api/categories")])
+    const controller = new AbortController();
+    setLoading(true);
+    Promise.all([fetchJson("/api/products", { signal: controller.signal }), fetchJson("/api/categories", { signal: controller.signal })])
       .then(([catalog, groups]) => {
         if (!active) return;
         setProducts(catalog.products);
@@ -240,8 +249,8 @@ export default function App() {
       })
       .catch(() => { if (active) setLoadError("The catalog could not be loaded. Make sure the API is running."); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [retry]);
+    return () => { active = false; controller.abort(); };
+  }, [retry, details]);
 
   useEffect(() => {
     let active = true;
@@ -256,6 +265,7 @@ export default function App() {
       if (active) setCartBusy(false);
     });
     return () => { active = false; };
+  // Catalog retry must not replay the startup snapshot over a later login/cart.
   }, []);
 
   useEffect(() => {
@@ -275,13 +285,8 @@ export default function App() {
 
   const productsById = useMemo(() => Object.fromEntries(products.map((product) => [product.id, product])), [products]);
 
-  const visibleProducts = useMemo(() => filterProducts(products, { search, category, sort }),
-    [products, category, search, sort]);
-
   function resetFilters() {
-    setSearch("");
-    setCategory("all");
-    setSort("popular");
+    setFilters(DEFAULT_FILTERS);
   }
 
   async function saveCartLine(id, quantity, message) {
@@ -340,6 +345,7 @@ export default function App() {
   async function handleLogout() {
     await fetchJson("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
+    setCartAdjustments([]);
     await refreshCart();
     setProfileOpen(false);
     setToast("You have signed out.");
@@ -370,19 +376,20 @@ export default function App() {
     }
   }
 
-  const featured = products.find((product) => product.id === "p-101") || { imageKey: "headphones", accent: "violet", name: "Studio Headphones", priceCents: 12999 };
+  const featured = products.find((product) => product.id === "p-101") || products[0];
   if (loginOpen) {
     return (
       <LoginPage
         onBack={() => setLoginOpen(false)}
         onSubmit={async ({ email, password }) => {
-          const { user: signedInUser } = await fetchJson("/api/auth/login", {
+          const { user: signedInUser, cartAdjustments: adjustments = [] } = await fetchJson("/api/auth/login", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
           });
           setUser(signedInUser);
+          setCartAdjustments(adjustments);
           await refreshCart();
           setLoginOpen(false);
           setToast(`Welcome back, ${signedInUser.name}.`);
@@ -393,11 +400,16 @@ export default function App() {
   if (profileOpen && user) {
     return <ProfilePage user={user} onBack={() => setProfileOpen(false)} onLogout={handleLogout} />;
   }
+  const cartMergeNotice = <CartMergeNotice adjustments={cartAdjustments}
+    onDismiss={() => setCartAdjustments([])} />;
   if (details) {
     return (
       <>
-      <ProductDetailsPage
-        product={details}
+      {cartMergeNotice}
+      <ConnectedProductPage
+        key={details}
+        productId={details}
+        onLoaded={rememberProduct}
         user={user}
         cartBusy={cartBusy}
         onSignIn={() => setLoginOpen(true)}
@@ -440,7 +452,9 @@ export default function App() {
       </header>
 
       <main id="top">
+        {cartMergeNotice}
         <div className="page-container">
+          <Scrum12Scope section="home" />
           <section className="hero" aria-labelledby="hero-title">
             <div className="hero-text">
               <span className="hero-kicker"><span /> THE EVERYDAY EDIT — 2026</span>
@@ -451,8 +465,8 @@ export default function App() {
             </div>
             <div className="hero-visual">
               <div className="hero-ring" />
-              <ProductArt product={featured} variant="hero" />
-              <div className="hero-product-label"><span>FEATURED PICK</span><strong>{featured.name}</strong><small>{formatPrice(featured.priceCents)}</small></div>
+              {featured && <><ProductArt product={featured} variant="hero" />
+              <button className="hero-product-label featured-link" onClick={() => setDetails(featured)} aria-label={`View featured ${featured.name}`}><span>FEATURED PICK</span><strong>{featured.name}</strong><small>{formatPrice(featured.priceCents)}</small></button></>}
               <span className="hero-side-text">DESIGNED FOR WHAT'S NEXT</span>
             </div>
           </section>
@@ -464,15 +478,16 @@ export default function App() {
           </section>
 
           <section className="catalog-section" id="catalog" aria-labelledby="catalog-heading">
+            <Scrum12Scope section="filters" />
             <SectionTitle eyebrow="FIND YOUR NEXT FAVORITE" title="Explore the collection">
-              <div className="catalog-count"><span className="count-dot" /> {visibleProducts.length} products</div>
+              <div className="catalog-count"><span className="count-dot" /> {catalogLoading ? "Loading..." : `${visibleProducts.length} products`}</div>
             </SectionTitle>
 
             <div className="filter-toolbar">
               <div className="category-list" aria-label="Product categories">
                 <button className={category === "all" ? "category-chip selected" : "category-chip"}
                   aria-pressed={category === "all"} onClick={() => setCategory("all")}>
-                  All products <span>{products.length}</span>
+                  All products <span>{totalProducts}</span>
                 </button>
                 {categories.map((group) => (
                   <button key={group.slug}
@@ -487,7 +502,7 @@ export default function App() {
                   <Search size={18} />
                   <span className="sr-only">Search product name or description</span>
                   <input value={search} onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search products..." type="search" />
+                    placeholder="Search products..." type="search" maxLength={100} />
                 </label>
                 <label className="sort-field"><SlidersHorizontal size={17} />
                   <span className="sr-only">Sort products</span>
@@ -500,19 +515,25 @@ export default function App() {
                 </label>
               </div>
             </div>
+            <div className="advanced-filters">
+              <label>Min price ($)<input aria-label="Minimum price" type="number" min="0" max="9999999" step="0.01" placeholder="Any" value={minPrice} onChange={(event) => setFilters({ minPrice: event.target.value })} /></label>
+              <span aria-hidden="true">—</span>
+              <label>Max price ($)<input aria-label="Maximum price" type="number" min="0" max="9999999" step="0.01" placeholder="Any" value={maxPrice} onChange={(event) => setFilters({ maxPrice: event.target.value })} /></label>
+              <label className="stock-filter"><input type="checkbox" checked={inStock} onChange={(event) => setFilters({ inStock: event.target.checked })} /> In stock only</label>
+            </div>
             <div className="filter-summary" role="status">
-              <span>{visibleProducts.length} of {products.length} products
+              <span>{catalogLoading ? "Updating products..." : `${visibleProducts.length} of ${totalProducts} products`}
                 {search.trim() && ` matching “${search.trim()}”`}</span>
-              {(search || category !== "all" || sort !== "popular") &&
+              {(search || category !== "all" || sort !== "popular" || minPrice || maxPrice || inStock) &&
                 <button className="text-action" onClick={resetFilters}>Reset filters</button>}
             </div>
 
-            {loading ? (
+            {catalogLoading ? (
               <div className="product-grid" aria-label="Loading products">
                 {Array.from({ length: 6 }, (_, index) => <div className="skeleton-card" key={index}><div /><span /><span /></div>)}
               </div>
-            ) : loadError ? (
-              <div className="empty-results"><AlertTriangle size={34} /><h3>Connection unavailable</h3><p>{loadError}</p><button className="outline-button" onClick={() => { setLoading(true); setRetry((n) => n + 1); }}>Try again</button></div>
+            ) : catalogError ? (
+              <div className="empty-results" role="alert"><AlertTriangle size={34} /><h3>{catalogResult.error?.status === 400 ? "Check your filters" : "Connection unavailable"}</h3><p>{catalogError}</p><button className="outline-button" onClick={() => { setLoading(true); setRetry((n) => n + 1); }}>Try again</button></div>
             ) : visibleProducts.length ? (
               <div className="product-grid">
                 {visibleProducts.map((product) =>
@@ -557,8 +578,7 @@ export default function App() {
         setDetails(product);
       }}
 />}
-      {details && <ProductDialog product={details} onClose={() => setDetails(null)}
-        onAdd={handleAdd} />}
+
     </>
   );
 }

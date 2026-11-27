@@ -29,7 +29,7 @@ function cartItems(db, cart) {
   `).all(cart.id);
 }
 
-function mergeItems(db, cart, items, combine) {
+function importItems(db, cart, items) {
   const current = new Map(cartItems(db, cart).map((line) => [line.productId, line.quantity]));
   const upsert = db.prepare(`
     INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (?, ?, ?)
@@ -39,8 +39,7 @@ function mergeItems(db, cart, items, combine) {
     const existing = current.get(productId);
     const product = getProduct(db, productId);
     if (!product || (!existing && current.size >= 40)) continue;
-    const merged = combine ? (existing ?? 0) + quantity : Math.max(existing ?? 0, quantity);
-    const available = Math.min(20, product.stock, merged);
+    const available = Math.min(20, product.stock, quantity);
     if (available > (existing ?? 0)) {
       upsert.run(cart.id, productId, available);
       current.set(productId, available);
@@ -49,16 +48,60 @@ function mergeItems(db, cart, items, combine) {
 }
 
 export function mergeGuestCart(db, req, userId) {
-  db.transaction(() => {
+  return db.transaction(() => {
     const guest = guestCart(db, req);
-    if (!guest) return;
-    const account = accountCart(db, userId);
-    if (!account) {
-      db.prepare("UPDATE carts SET user_id = ?, guest_hash = NULL WHERE id = ?").run(userId, guest.id);
-      return;
+    if (!guest) return [];
+    const guestItems = cartItems(db, guest);
+    if (guestItems.length === 0) {
+      db.prepare("DELETE FROM carts WHERE id = ?").run(guest.id);
+      return [];
     }
-    mergeItems(db, account, cartItems(db, guest), true);
-    db.prepare("DELETE FROM carts WHERE id = ?").run(guest.id);
+
+    const account = accountCart(db, userId);
+    const destination = account ?? guest;
+    const existing = new Map(cartItems(db, destination).map(({ productId, quantity }) => [productId, quantity]));
+    // Keep account lines ahead of guest-only lines when the combined bag is full.
+    const requested = account ? new Map(existing) : new Map();
+    for (const { productId, quantity } of guestItems) {
+      requested.set(productId, (requested.get(productId) ?? 0) + quantity);
+    }
+
+    const findProduct = db.prepare("SELECT name, stock, deleted_at FROM products WHERE id = ?");
+    const remove = db.prepare("DELETE FROM cart_items WHERE cart_id = ? AND product_id = ?");
+    const upsert = db.prepare(`
+      INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (?, ?, ?)
+      ON CONFLICT (cart_id, product_id) DO UPDATE SET quantity = excluded.quantity
+    `);
+    const adjustments = [];
+    let kept = 0;
+    for (const [productId, requestedQuantity] of requested) {
+      const product = findProduct.get(productId);
+      const unavailable = !product || product.deleted_at !== null;
+      let quantity = unavailable ? 0 : Math.min(requestedQuantity, product.stock, 20);
+      const bagFull = quantity > 0 && kept >= 40;
+      if (bagFull) quantity = 0;
+
+      if (quantity === 0) {
+        remove.run(destination.id, productId);
+      } else {
+        if (existing.get(productId) !== quantity) upsert.run(destination.id, productId, quantity);
+        kept += 1;
+      }
+      if (quantity < requestedQuantity) {
+        let reason = "stock";
+        if (unavailable) reason = "removed";
+        else if (bagFull) reason = "bag_limit";
+        else if (quantity === 20) reason = "item_limit";
+        adjustments.push({ productId, name: product?.name ?? productId, requestedQuantity, quantity, reason });
+      }
+    }
+
+    if (account) {
+      db.prepare("DELETE FROM carts WHERE id = ?").run(guest.id);
+    } else {
+      db.prepare("UPDATE carts SET user_id = ?, guest_hash = NULL WHERE id = ?").run(userId, guest.id);
+    }
+    return adjustments;
   }).immediate();
 }
 
@@ -92,7 +135,7 @@ export function createCartRouter(db, cookieSecure) {
 
   router.post("/import", (req, res) => {
     if (!isValidCartInput(req.body?.items)) throw new HttpError(400, "Invalid cart items.");
-    mutate(req, res, (cart) => mergeItems(db, cart, req.body.items, false));
+    mutate(req, res, (cart) => importItems(db, cart, req.body.items));
   });
 
   router.put("/items/:productId", (req, res) => {

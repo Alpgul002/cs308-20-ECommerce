@@ -9,3 +9,6 @@ backend/data/
 **/.env
 .DS_Store
 coverage/
+playwright-report/
+test-results/
+*.log

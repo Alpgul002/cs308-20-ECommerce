@@ -12,7 +12,8 @@ import { createShopRouter } from "./shopRoutes.js";
 import { HttpError } from "./errors.js";
 import { loadSession, rejectForeignOrigins } from "./middleware.js";
 import { createProductAdminRouter } from "./productAdminRoutes.js";
-import { getCategories, getProduct, getProducts, isValidCartInput, SORT_OPTIONS, validateCart } from "./catalog.js";
+import { getCategories, getProduct, getProducts, isValidCartInput, validateCart } from "./catalog.js";
+import { parseCatalogFilters } from "./catalogFilters.js";
 
 const DEFAULT_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
 
@@ -47,20 +48,17 @@ export function createApp(db, options = {}) {
   app.use("/api/auth", createAuthRouter(db, { bcryptRounds, cookieSecure, loginLimit, registerLimit }));
 
   app.get("/api/categories", (_req, res) => {
+    res.set("Cache-Control", "no-store");
     res.json({ categories: getCategories(db) });
   });
 
   app.get("/api/products", (req, res) => {
-    const { search = "", category = "all", sort = "popular" } = req.query;
-    if (typeof search !== "string" || search.length > 100 ||
-        typeof category !== "string" || !/^(all|[a-z-]{1,30})$/.test(category) ||
-        typeof sort !== "string" || !Object.hasOwn(SORT_OPTIONS, sort)) {
-      return res.status(400).json({ error: "Invalid product filters" });
-    }
-    res.json({ products: getProducts(db, { search, category, sort }) });
+    res.set("Cache-Control", "no-store");
+    res.json({ products: getProducts(db, parseCatalogFilters(req.query)) });
   });
 
   app.get("/api/products/:id", (req, res) => {
+    res.set("Cache-Control", "no-store");
     const product = getProduct(db, req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json({ product });
